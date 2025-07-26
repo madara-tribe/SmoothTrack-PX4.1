@@ -41,6 +41,7 @@ public:
     cv::Rect clipBox(float x1, float y1, float x2, float y2, int imageWidth, int imageHeight);
     cv::Rect MotionBasedTrackedBox(const cv::Rect& currentBox, const std::string& label, int imageWidth, int imageHeight);
     void setTrackingMode(TrackingMode mode);
+    
 private:
     Ort::SessionOptions sessionOptions;
     Ort::Env env;
