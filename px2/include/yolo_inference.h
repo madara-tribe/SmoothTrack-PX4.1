@@ -10,6 +10,7 @@ extern std::vector<std::string> classNames; // Use extern to declare the variabl
 
 enum TrackingMode { SINGLE, GROUP };
 
+
 typedef struct Result {
     int x1;
     int x2;
@@ -41,7 +42,7 @@ public:
     cv::Rect clipBox(float x1, float y1, float x2, float y2, int imageWidth, int imageHeight);
     cv::Rect MotionBasedTrackedBox(const cv::Rect& currentBox, const std::string& label, int imageWidth, int imageHeight);
     void setTrackingMode(TrackingMode mode);
-    
+    TrackingMode getTrackingMode() const;
 private:
     Ort::SessionOptions sessionOptions;
     Ort::Env env;

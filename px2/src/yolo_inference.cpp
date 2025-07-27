@@ -193,6 +193,11 @@ cv::Rect YoloDetect::MotionBasedTrackedBox(const cv::Rect& currentBox, const std
 void YoloDetect::setTrackingMode(TrackingMode mode) {
     tracking_mode = mode;
 }
+
+TrackingMode YoloDetect::getTrackingMode() const {
+    return tracking_mode;
+}
+
 std::vector<Ort::Value> YoloDetect::RunInference(cv::Mat& inputImage){
     
     size_t num_input_nodes = session->GetInputCount();

@@ -20,7 +20,7 @@ find_package(image_transport REQUIRED)
 
 # OpenCV
 find_package(OpenCV REQUIRED)
-
+find_package(custom_msgs REQUIRED)
 
 # ONNX Runtime
 find_path(ONNX_RUNTIME_SESSION_INCLUDE_DIRS onnxruntime_cxx_api.h HINTS /usr/local/include/onnxruntime/core/session/)
@@ -55,6 +55,7 @@ ament_target_dependencies(${PROJECT_NAME}
   ament_index_cpp
   sensor_msgs
   cv_bridge
+  custom_msgs
 )
 
 # Install targets

@@ -10,6 +10,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include "rclcpp/rclcpp.hpp"
+#include "custom_msgs/msg/abs_result.hpp"
 
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
@@ -23,7 +24,7 @@ public:
   explicit OnnxInferenceNode(const rclcpp::NodeOptions & options);
 private:
   rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+  rclcpp::Publisher<custom_msgs::msg::AbsResult>::SharedPtr publisher_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_;
   std::string pkg_path = PKG_PATH;
 
@@ -31,7 +32,8 @@ private:
   bool inference_triggered_ = false;
   void callbackInference();
   void stringCallback(const std_msgs::msg::String::SharedPtr msg);
-  void publishState(const std_msgs::msg::String & message);
+  std::pair<double, double>computeCameraAngleFromBox(const Result& result, const cv::Size& imageSize, double HFOV_deg = 79.0, double VFOV_deg = 45.0);
+  void publishState(const custom_msgs::msg::AbsResult & message);
 };
 
 }  // namespace onnx_inference

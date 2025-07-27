@@ -11,7 +11,7 @@ namespace onnx_inference
   OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   : Node("px2", options), inference_triggered_(true)  // Trigger inference immediately
   {
-    publisher_ = this->create_publisher<std_msgs::msg::String>("inference", rclcpp::QoS{10}.transient_local());
+    publisher_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", rclcpp::QoS{10}.transient_local());
     timer_ = this->create_wall_timer(
         500ms, std::bind(&OnnxInferenceNode::callbackInference, this));
     sub_ = this->create_subscription<std_msgs::msg::String>(
@@ -26,6 +26,20 @@ namespace onnx_inference
     }
   }
 
+    std::pair<double, double> OnnxInferenceNode::computeCameraAngleFromBox(const Result& result, const cv::Size& imageSize, double HFOV_deg, double VFOV_deg) {
+        int box_cx = (result.x1 + result.x2) / 2;
+        int box_cy = (result.y1 + result.y2) / 2;
+        int img_cx = imageSize.width / 2;
+        int img_cy = imageSize.height / 2;
+
+        int dx = box_cx - img_cx;
+        int dy = box_cy - img_cy;
+
+        double angle_x = (static_cast<double>(dx) / imageSize.width) * HFOV_deg;
+        double angle_y = (static_cast<double>(dy) / imageSize.height) * VFOV_deg;
+
+        return {angle_x, angle_y};
+    }
   void OnnxInferenceNode::callbackInference()
   {
     if (!inference_triggered_) {
@@ -43,6 +57,7 @@ namespace onnx_inference
     YoloDetect yolo_detector(pkg_path + ONNX_YOLO_PATH);
     yolo_detector.setTrackingMode(SINGLE);
     //yolo_detector.setTrackingMode(GROUP);
+    TrackingMode current_mode = yolo_detector.getTrackingMode();
     int frame_id = 0;
     cv::Mat frame;
       while (cap.read(frame)) {
@@ -53,7 +68,28 @@ namespace onnx_inference
           std::vector<Ort::Value> outputTensors = yolo_detector.RunInference(inputImage);
           std::vector<Result> resultVector = yolo_detector.postprocess(frame.size(), outputTensors);
           cv::Mat yolo_result = yolo_detector.drawBoundingBox(frame, resultVector);
-          
+          std::this_thread::sleep_for(std::chrono::seconds(2));
+          for (const auto& result : resultVector) {
+              bool apply_track = false;
+
+              if (current_mode == SINGLE && result.obj_id != -1) {
+                  apply_track = true;
+              } else if (current_mode == GROUP && result.obj_id == -1) {
+                  apply_track = true;
+              }
+
+              if (apply_track) {
+                  auto [angle_x, angle_y] = computeCameraAngleFromBox(result, frame.size());
+
+                  std::cout << "[Frame " << frame_id << "] Camera move angle_x: "
+                            << angle_x << "°, angle_y: " << angle_y << "°" << std::endl;
+
+                  custom_msgs::msg::AbsResult message;
+                  message.x_angle = angle_x;
+                  publishState(message);
+                  break;
+              }
+          }
           auto end = std::chrono::high_resolution_clock::now();
           std::chrono::duration<double> diff = end - start;
           
@@ -65,15 +101,13 @@ namespace onnx_inference
           
           frame_id++;
       }
-    std_msgs::msg::String message;
-    message.data = "inference_done";
-    publishState(message);
   }
 
-  void OnnxInferenceNode::publishState(const std_msgs::msg::String & message)
+  void OnnxInferenceNode::publishState(const custom_msgs::msg::AbsResult & message)
   {
-     RCLCPP_INFO(this->get_logger(), "Publishing inference completion message");
-     publisher_->publish(message);
+      RCLCPP_INFO(this->get_logger(), "Publishing x_anfgle: %.2f",
+                    message.x_angle);
+           publisher_->publish(message);
   }
 }  // namespace onnx_inference
 
