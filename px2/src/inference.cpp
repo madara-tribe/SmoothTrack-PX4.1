@@ -14,9 +14,20 @@ namespace onnx_inference
     publisher_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", rclcpp::QoS{10}.transient_local());
     timer_ = this->create_wall_timer(
         500ms, std::bind(&OnnxInferenceNode::callbackInference, this));
-    sub_ = this->create_subscription<std_msgs::msg::String>(
-      "/string_trigger", rclcpp::QoS{10},
-      std::bind(&OnnxInferenceNode::stringCallback, this, std::placeholders::_1));
+    this->declare_parameter<std::string>("device_path", "/dev/video2");
+    std::string device_path = this->get_parameter("device_path").as_string();
+    RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
+
+    cap_.open(device_path);
+    if (!cap_.isOpened()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to open camera device: %s", device_path.c_str());
+      rclcpp::shutdown();
+      return;
+    }
+
+    cap_.set(cv::CAP_PROP_FPS, 30);
+    cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
   }
 
   void OnnxInferenceNode::stringCallback(const std_msgs::msg::String::SharedPtr msg)
@@ -48,27 +59,23 @@ namespace onnx_inference
     inference_triggered_ = false;
     RCLCPP_INFO(rclcpp::get_logger("ImageSubscriber"), "Running YOLO inference");
 
-    cv::VideoCapture cap(pkg_path + "/data/output.mp4");
-    if (!cap.isOpened()) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to open video file: output.mp4");
-        return;
-    }
-
     YoloDetect yolo_detector(pkg_path + ONNX_YOLO_PATH);
     yolo_detector.setTrackingMode(SINGLE);
     //yolo_detector.setTrackingMode(GROUP);
     TrackingMode current_mode = yolo_detector.getTrackingMode();
     int frame_id = 0;
     cv::Mat frame;
-      while (cap.read(frame)) {
+    cap_ >> frame;  // Get the first frame from the camera
+      while (cap_.read(frame)) {
           if (frame.empty()) break;
           auto start = std::chrono::high_resolution_clock::now();
-          
+           
           cv::Mat inputImage = yolo_detector.preprocess(frame, YOLO_INPUT_H, YOLO_INPUT_W);
           std::vector<Ort::Value> outputTensors = yolo_detector.RunInference(inputImage);
           std::vector<Result> resultVector = yolo_detector.postprocess(frame.size(), outputTensors);
           cv::Mat yolo_result = yolo_detector.drawBoundingBox(frame, resultVector);
           std::this_thread::sleep_for(std::chrono::seconds(2));
+	  //std::this_thread::sleep_for(std::chrono::milliseconds(100));
           for (const auto& result : resultVector) {
               bool apply_track = false;
 
@@ -96,7 +103,7 @@ namespace onnx_inference
           std::cout << "[Frame " << frame_id << "] YOLO inference took " << diff.count() << " seconds" << std::endl;
           
           // Optional: save or show result
-          std::string output_path = pkg_path + "/data/frames/frame_" + std::to_string(frame_id) + ".png";
+          std::string output_path = pkg_path + "/data/frame_" + std::to_string(frame_id) + ".png";
           cv::imwrite(output_path, yolo_result);
           
           frame_id++;

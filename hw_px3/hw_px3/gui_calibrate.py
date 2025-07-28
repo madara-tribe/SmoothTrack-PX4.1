@@ -4,8 +4,8 @@ import tkinter as tk
 from tkinter import messagebox
 
 # === Serial Setup ===
-ARDUINO_PORT = '/dev/cu.usbserial-DK0FJVDT'
-BAUD_RATE = 115200
+ARDUINO_PORT = '/dev/ttyACM0'
+BAUD_RATE = 9600
 
 ser = None
 try:
@@ -19,7 +19,7 @@ except serial.SerialException as e:
 def send_angle(value):
     if ser and ser.is_open:
         try:
-            angle = int(float(value))
+            angle = int(180 - float(value))
             ser.write(f"{angle}\n".encode())
             print(f"Sent angle: {angle}")
         except Exception as e:
@@ -47,5 +47,3 @@ slider.pack(fill="x", padx=20, pady=20)
 
 root.protocol("WM_DELETE_WINDOW", on_close)
 root.mainloop()
-
-

@@ -7,13 +7,15 @@ def generate_launch_description():
             package='px2',
             executable='px2',
             name='px2_node',
-            output='screen'
+            output='screen',
+            parameters=[{'camera_path': '/dev/video2'}]
         ),
         Node(
             package='hw_px3',
-            executable='main',
+            executable='hw_px3',
             name='hw_px3_node',
-            output='screen'
+            output='screen',
+            parameters=[{'arduino_port': '/dev/ttyACM0'}]
         )
     ])
 

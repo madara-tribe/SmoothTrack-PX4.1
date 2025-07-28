@@ -1,26 +1,23 @@
 from setuptools import setup
 
-package_name = 'hw_px3'
-
 setup(
-    name=package_name,
+    name='hw_px3',
     version='0.0.0',
-    packages=[package_name],
+    packages=['hw_px3'],
     data_files=[
         ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+            ['resource/hw_px3']),
+        ('share/hw_px3', ['package.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='developer',
-    maintainer_email='developer@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
-    tests_require=['pytest'],
+    maintainer='you',
+    maintainer_email='you@example.com',
+    description='ESP8266 subscriber to angle',
+    license='MIT',
     entry_points={
-    'console_scripts': [
-        'hw_px3 = hw_px3.main:main',
+        'console_scripts': [
+            'hw_px3 = hw_px3.main:main'
         ],
     },
 )
