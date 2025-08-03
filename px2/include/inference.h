@@ -31,7 +31,8 @@ private:
   bool inference_triggered_ = false;
   void callbackInference();
   void stringCallback(const std_msgs::msg::String::SharedPtr msg);
-  std::pair<double, double>computeCameraAngleFromBox(const Result& result, const cv::Size& imageSize, double HFOV_deg = 56.8, double VFOV_deg = 44.0);
+  // https://item.rakuten.co.jp/soushin-shop/webcam01-cp/?ultra_crid=webcam01-cp&variantId=webcam01-cp&scid=af_sp_etc&sc2id=af_113_0_10001868&icm_acid=255-776-8501&icm_cid=15280804517&iasid=wem_icbs_&gclid=CjwKCAjwkbzEBhAVEiwA4V-yqkyRkEOcjA42f33CtHbXbLaLR905EJi3t0qAmNl6OlGJAYjDc_StAxoC6XcQAvD_BwE&ifd=57&gbraid=0AAAAADoVjpiuZ5phOqRZoy2D6VcJYMU0U&icm_agid=135083843412
+  std::pair<double, double>computeCameraAngleFromBox(const Result& result, const cv::Size& imageSize, double HFOV_deg = 90.0, double VFOV_deg = 59.0);
   void publishState(const custom_msgs::msg::AbsResult & message);
 };
 
