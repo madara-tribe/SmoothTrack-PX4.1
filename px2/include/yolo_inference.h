@@ -40,7 +40,6 @@ public:
     std::vector<Result> postprocess(cv::Size originalImageSize, std::vector<Ort::Value>& outputTensors);
     std::vector<Ort::Value> RunInference(cv::Mat& inputImage);
     cv::Rect clipBox(float x1, float y1, float x2, float y2, int imageWidth, int imageHeight);
-    cv::Rect MotionBasedTrackedBox(const cv::Rect& currentBox, const std::string& label, int imageWidth, int imageHeight);
     void setTrackingMode(TrackingMode mode);
     TrackingMode getTrackingMode() const;
 private:
@@ -51,7 +50,7 @@ private:
     int numthreads = 0;
     const char* input_node_name = "images";
     const char* output_node_name = "output";
-    std::unordered_map<std::string, cv::Point> prev_centers;
+    
     TrackingMode tracking_mode = SINGLE; // default
     int pad_size_y;
     int pad_size_x;
