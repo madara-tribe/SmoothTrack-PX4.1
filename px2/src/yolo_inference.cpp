@@ -52,10 +52,9 @@ std::vector<Result> YoloDetect::postprocess(cv::Size originalImageSize, std::vec
             std::ostringstream labelStream;
             labelStream << classNames.at(classPrediction) << " " << std::round(accuracy * 100) / 100;
             std::string label = labelStream.str();
-            cv::Rect tracked = MotionBasedTrackedBox(clipped, label, originalImageSize.width, originalImageSize.height);
 
-            Result result(tracked.x, tracked.x + tracked.width, tracked.y, tracked.y + tracked.height, classPrediction, accuracy);
-            detected_boxes.push_back(std::make_pair(tracked, result));
+            Result result(clipped.x, clipped.x + clipped.width, clipped.y, clipped.y + clipped.height, classPrediction, accuracy);
+            detected_boxes.push_back(std::make_pair(clipped, result));
         }
     }
 
@@ -166,28 +165,6 @@ cv::Rect YoloDetect::clipBox(float x1, float y1, float x2, float y2, int imageWi
     int x2_clipped = std::max(0, std::min(static_cast<int>(x2), imageWidth - 1));
     int y2_clipped = std::max(0, std::min(static_cast<int>(y2), imageHeight - 1));
     return cv::Rect(cv::Point(x1_clipped, y1_clipped), cv::Point(x2_clipped, y2_clipped));
-}
-
-cv::Rect YoloDetect::MotionBasedTrackedBox(const cv::Rect& currentBox, const std::string& label, int imageWidth, int imageHeight) {
-    int center_x = currentBox.x + currentBox.width / 2;
-    int center_y = currentBox.y + currentBox.height / 2;
-
-    cv::Point prev_center(0, 0);
-    cv::Point diff(0, 0);
-
-    if (prev_centers.find(label) != prev_centers.end()) {
-        prev_center = prev_centers[label];
-        diff = cv::Point(center_x - prev_center.x, center_y - prev_center.y);
-    }
-
-    prev_centers[label] = cv::Point(center_x, center_y);
-
-    cv::Rect shiftedBox = currentBox + diff;
-
-    return clipBox(shiftedBox.x, shiftedBox.y,
-                   shiftedBox.x + shiftedBox.width,
-                   shiftedBox.y + shiftedBox.height,
-                   imageWidth, imageHeight);
 }
 
 void YoloDetect::setTrackingMode(TrackingMode mode) {
