@@ -29,9 +29,15 @@ class ServoSubscriber(Node):
         )
 
     def listener_callback(self, msg):
-        angle = int(90 + msg.x_angle)
-        angle = max(0, min(180, angle))
+        # if there are small differece between image cernter and bbox center, angle get back to original position(90)
+        if abs(msg.x_angle) < 1.5:
+            angle = 90
+            self.get_logger().info(f"Tracking success. Reset to center: {angle}")
+        else:
+            angle = int(90 + msg.x_angle)
+            self.get_logger().info(f"Tracking object. Move to: {angle} (from x_angle={msg.x_angle:.2f})")
 
+        angle = max(0, min(180, angle))
         # For Arduino Uno, just send number and newline (no "x:" prefix)
         command = f"{angle}\n"
 
@@ -59,4 +65,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
