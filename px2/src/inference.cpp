@@ -91,7 +91,9 @@ namespace onnx_inference
                   std::cout << "[Frame " << frame_id << "] Camera move angle_x: "
                             << angle_x << "°, angle_y: " << angle_y << "°" << std::endl;
 
-                  custom_msgs::msg::AbsResult message;
+                  cv::putText(yolo_result, std::to_string(angle_x), cv::Point(result.x1, result.y1 + 60),
+                        cv::FONT_ITALIC, 0.8, cv::Scalar(255, 255, 0), 2);
+		  custom_msgs::msg::AbsResult message;
                   message.x_angle = angle_x;
                   publishState(message);
                   break;
