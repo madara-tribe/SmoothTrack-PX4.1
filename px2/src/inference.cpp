@@ -105,7 +105,8 @@ namespace onnx_inference
           // Optional: save or show result
           std::string output_path = pkg_path + "/data/frame_" + std::to_string(frame_id) + ".png";
           cv::imwrite(output_path, yolo_result);
-          
+          //cv::imshow("Inference Output", yolo_result);
+          //cv::waitKey(1); 
           frame_id++;
       }
   }

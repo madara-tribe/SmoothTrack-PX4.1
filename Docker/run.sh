@@ -16,6 +16,8 @@ xhost +local:docker
 docker run -it --rm \
   --net=host \
   --privileged \
+  --env="DISPLAY=$DISPLAY" \
+  --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
   --device=/dev/video-cam:$CAMERA_DEV \
   --group-add video \
   -v /home/hagi/Downloads/place/:/ros2_ws \

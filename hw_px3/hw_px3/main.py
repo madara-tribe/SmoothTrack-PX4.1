@@ -6,7 +6,7 @@ import time
 from rclpy.parameter import Parameter
 
 # Updated for Arduino Uno
-BAUD_RATE = 115200
+BAUD_RATE = 9600
 
 class ServoSubscriber(Node):
     def __init__(self):
@@ -14,9 +14,12 @@ class ServoSubscriber(Node):
         self.declare_parameter('arduino_port', '/dev/ttyACM0')
         port = self.get_parameter('arduino_port').get_parameter_value().string_value
         self.arduino_port = port
+        self.initial_value = 90
         try:
             self.ser = serial.Serial(self.arduino_port, BAUD_RATE, timeout=1)
-            self.get_logger().info(f"Connected to Arduino Uno on {self.arduino_port}")
+            self.ser.write(f"{self.initial_value}\n".encode())
+            self.get_logger().info(f"Connected to Arduino angle set to {self.initial_value}")
+            time.sleep(2)
         except serial.SerialException as e:
             self.get_logger().error(f"Serial connection failed: {e}")
             self.ser = None
@@ -65,3 +68,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
