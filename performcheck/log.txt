@@ -1,0 +1,119 @@
+[INFO] [launch]: All log files can be found below /home/developer/.ros/log/2025-08-09-02-43-16-819198-hagi-px-2585
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [px2-1]: process started with pid [2587]
+[INFO] [hw_px3-2]: process started with pid [2589]
+[hw_px3-2] [INFO] [1754707397.232205295] [hw_px3_node]: Connected to Arduino angle set to 90
+[px2-1] [INFO] [1754707399.303304498] [px2_node]: px2: subscribers=1 (required=1)
+[px2-1] [INFO] [1754707399.303513632] [px2_node]: px2: start_delay_ms=500
+[px2-1] [INFO] [1754707399.803757427] [px2_node]: px2: publishing 180 angles [0..179] step 1 at 20.0 Hz (period=50 ms, log_every=30)
+[hw_px3-2] [INFO] [1754707399.854754557] [hw_px3_node]: Tracking success. Reset to center: 90
+[hw_px3-2] [INFO] [1754707399.855189190] [hw_px3_node]: Send to Arduino: 90
+[hw_px3-2] [INFO] [1754707399.956425894] [hw_px3_node]: Tracking success. Reset to center: 90
+[hw_px3-2] [INFO] [1754707399.956936270] [hw_px3_node]: Send to Arduino: 90
+[hw_px3-2] [INFO] [1754707400.058190303] [hw_px3_node]: Tracking object. Move to: 92 (from x_angle=2.00)
+[hw_px3-2] [INFO] [1754707400.058673192] [hw_px3_node]: Send to Arduino: 92
+[hw_px3-2] [INFO] [1754707400.159932431] [hw_px3_node]: Tracking object. Move to: 93 (from x_angle=3.00)
+[hw_px3-2] [INFO] [1754707400.160420526] [hw_px3_node]: Send to Arduino: 93
+[hw_px3-2] [INFO] [1754707400.261682368] [hw_px3_node]: Tracking object. Move to: 94 (from x_angle=4.00)
+[hw_px3-2] [INFO] [1754707400.262206360] [hw_px3_node]: Send to Arduino: 94
+[hw_px3-2] [INFO] [1754707400.363506060] [hw_px3_node]: Tracking object. Move to: 95 (from x_angle=5.00)
+[hw_px3-2] [INFO] [1754707400.364033612] [hw_px3_node]: Send to Arduino: 95
+[hw_px3-2] [INFO] [1754707400.465324697] [hw_px3_node]: Tracking object. Move to: 96 (from x_angle=6.00)
+[hw_px3-2] [INFO] [1754707400.465832829] [hw_px3_node]: Send to Arduino: 96
+[hw_px3-2] [INFO] [1754707400.567100829] [hw_px3_node]: Tracking object. Move to: 97 (from x_angle=7.00)
+[hw_px3-2] [INFO] [1754707400.567601299] [hw_px3_node]: Send to Arduino: 97
+[hw_px3-2] [INFO] [1754707400.668894284] [hw_px3_node]: Tracking object. Move to: 98 (from x_angle=8.00)
+[hw_px3-2] [INFO] [1754707400.669368894] [hw_px3_node]: Send to Arduino: 98
+[hw_px3-2] [INFO] [1754707400.770623500] [hw_px3_node]: Tracking object. Move to: 99 (from x_angle=9.00)
+[hw_px3-2] [INFO] [1754707400.771127839] [hw_px3_node]: Send to Arduino: 99
+[hw_px3-2] [INFO] [1754707400.872511707] [hw_px3_node]: Tracking object. Move to: 101 (from x_angle=11.00)
+[hw_px3-2] [INFO] [1754707400.873014060] [hw_px3_node]: Send to Arduino: 101
+[hw_px3-2] [INFO] [1754707400.974265044] [hw_px3_node]: Tracking object. Move to: 103 (from x_angle=13.00)
+[hw_px3-2] [INFO] [1754707400.974768779] [hw_px3_node]: Send to Arduino: 103
+[hw_px3-2] [INFO] [1754707401.076044383] [hw_px3_node]: Tracking object. Move to: 105 (from x_angle=15.00)
+[hw_px3-2] [INFO] [1754707401.076528241] [hw_px3_node]: Send to Arduino: 105
+[hw_px3-2] [INFO] [1754707401.177855066] [hw_px3_node]: Tracking object. Move to: 107 (from x_angle=17.00)
+[hw_px3-2] [INFO] [1754707401.178320787] [hw_px3_node]: Send to Arduino: 107
+[hw_px3-2] [INFO] [1754707401.279635628] [hw_px3_node]: Tracking object. Move to: 109 (from x_angle=19.00)
+[hw_px3-2] [INFO] [1754707401.280144329] [hw_px3_node]: Send to Arduino: 109
+[px2-1] [INFO] [1754707401.353939831] [px2_node]: px2: sent=30 | last dt=50.000 ms | avg=50.003 ms (~20.00 Hz)
+[hw_px3-2] [INFO] [1754707401.381413014] [hw_px3_node]: Tracking object. Move to: 111 (from x_angle=21.00)
+[hw_px3-2] [INFO] [1754707401.381920797] [hw_px3_node]: Send to Arduino: 111
+[hw_px3-2] [INFO] [1754707401.483179103] [hw_px3_node]: Tracking object. Move to: 113 (from x_angle=23.00)
+[hw_px3-2] [INFO] [1754707401.483660414] [hw_px3_node]: Send to Arduino: 113
+[hw_px3-2] [INFO] [1754707401.584924707] [hw_px3_node]: Tracking object. Move to: 115 (from x_angle=25.00)
+[hw_px3-2] [INFO] [1754707401.585415199] [hw_px3_node]: Send to Arduino: 115
+[hw_px3-2] [INFO] [1754707401.686645478] [hw_px3_node]: Tracking object. Move to: 117 (from x_angle=27.00)
+[hw_px3-2] [INFO] [1754707401.687188030] [hw_px3_node]: Send to Arduino: 117
+[hw_px3-2] [INFO] [1754707401.788485390] [hw_px3_node]: Tracking object. Move to: 119 (from x_angle=29.00)
+[hw_px3-2] [INFO] [1754707401.789020228] [hw_px3_node]: Send to Arduino: 119
+[hw_px3-2] [INFO] [1754707401.890295304] [hw_px3_node]: Tracking object. Move to: 121 (from x_angle=31.00)
+[hw_px3-2] [INFO] [1754707401.890805572] [hw_px3_node]: Send to Arduino: 121
+[hw_px3-2] [INFO] [1754707401.992246668] [hw_px3_node]: Tracking object. Move to: 123 (from x_angle=33.00)
+[hw_px3-2] [INFO] [1754707401.992854707] [hw_px3_node]: Send to Arduino: 123
+[hw_px3-2] [INFO] [1754707402.094245571] [hw_px3_node]: Tracking object. Move to: 125 (from x_angle=35.00)
+[hw_px3-2] [INFO] [1754707402.094759877] [hw_px3_node]: Send to Arduino: 125
+[hw_px3-2] [INFO] [1754707402.196168625] [hw_px3_node]: Tracking object. Move to: 127 (from x_angle=37.00)
+[hw_px3-2] [INFO] [1754707402.196639499] [hw_px3_node]: Send to Arduino: 127
+[hw_px3-2] [INFO] [1754707402.297949288] [hw_px3_node]: Tracking object. Move to: 129 (from x_angle=39.00)
+[hw_px3-2] [INFO] [1754707402.298422895] [hw_px3_node]: Send to Arduino: 129
+[hw_px3-2] [INFO] [1754707402.399642141] [hw_px3_node]: Tracking object. Move to: 131 (from x_angle=41.00)
+[hw_px3-2] [INFO] [1754707402.400206217] [hw_px3_node]: Send to Arduino: 131
+[hw_px3-2] [INFO] [1754707402.501521039] [hw_px3_node]: Tracking object. Move to: 133 (from x_angle=43.00)
+[hw_px3-2] [INFO] [1754707402.502035505] [hw_px3_node]: Send to Arduino: 133
+[hw_px3-2] [INFO] [1754707402.603304948] [hw_px3_node]: Tracking object. Move to: 135 (from x_angle=45.00)
+[hw_px3-2] [INFO] [1754707402.603825120] [hw_px3_node]: Send to Arduino: 135
+[hw_px3-2] [INFO] [1754707402.705176528] [hw_px3_node]: Tracking object. Move to: 138 (from x_angle=48.00)
+[hw_px3-2] [INFO] [1754707402.705680517] [hw_px3_node]: Send to Arduino: 138
+[hw_px3-2] [INFO] [1754707402.806966119] [hw_px3_node]: Tracking object. Move to: 140 (from x_angle=50.00)
+[hw_px3-2] [INFO] [1754707402.807453526] [hw_px3_node]: Send to Arduino: 140
+[px2-1] [INFO] [1754707402.853937021] [px2_node]: px2: sent=60 | last dt=50.002 ms | avg=50.001 ms (~20.00 Hz)
+[hw_px3-2] [INFO] [1754707402.908573728] [hw_px3_node]: Tracking object. Move to: 142 (from x_angle=52.00)
+[hw_px3-2] [INFO] [1754707402.909089076] [hw_px3_node]: Send to Arduino: 142
+[hw_px3-2] [INFO] [1754707403.010326713] [hw_px3_node]: Tracking object. Move to: 144 (from x_angle=54.00)
+[hw_px3-2] [INFO] [1754707403.010847845] [hw_px3_node]: Send to Arduino: 144
+[hw_px3-2] [INFO] [1754707403.112189889] [hw_px3_node]: Tracking object. Move to: 146 (from x_angle=56.00)
+[hw_px3-2] [INFO] [1754707403.112668388] [hw_px3_node]: Send to Arduino: 146
+[hw_px3-2] [INFO] [1754707403.213949800] [hw_px3_node]: Tracking object. Move to: 148 (from x_angle=58.00)
+[hw_px3-2] [INFO] [1754707403.214424612] [hw_px3_node]: Send to Arduino: 148
+[hw_px3-2] [INFO] [1754707403.315640805] [hw_px3_node]: Tracking object. Move to: 150 (from x_angle=60.00)
+[hw_px3-2] [INFO] [1754707403.316194466] [hw_px3_node]: Send to Arduino: 150
+[hw_px3-2] [INFO] [1754707403.417484297] [hw_px3_node]: Tracking object. Move to: 152 (from x_angle=62.00)
+[hw_px3-2] [INFO] [1754707403.418024344] [hw_px3_node]: Send to Arduino: 152
+[hw_px3-2] [INFO] [1754707403.519283075] [hw_px3_node]: Tracking object. Move to: 154 (from x_angle=64.00)
+[hw_px3-2] [INFO] [1754707403.519813281] [hw_px3_node]: Send to Arduino: 154
+[hw_px3-2] [INFO] [1754707403.621137177] [hw_px3_node]: Tracking object. Move to: 156 (from x_angle=66.00)
+[hw_px3-2] [INFO] [1754707403.621625306] [hw_px3_node]: Send to Arduino: 156
+[hw_px3-2] [INFO] [1754707403.722914256] [hw_px3_node]: Tracking object. Move to: 158 (from x_angle=68.00)
+[hw_px3-2] [INFO] [1754707403.723396521] [hw_px3_node]: Send to Arduino: 158
+[hw_px3-2] [INFO] [1754707403.825230457] [hw_px3_node]: Tracking object. Move to: 160 (from x_angle=70.00)
+[hw_px3-2] [INFO] [1754707403.826173138] [hw_px3_node]: Send to Arduino: 160
+[hw_px3-2] [INFO] [1754707403.927172280] [hw_px3_node]: Tracking object. Move to: 162 (from x_angle=72.00)
+[hw_px3-2] [INFO] [1754707403.927517892] [hw_px3_node]: Send to Arduino: 162
+[hw_px3-2] [INFO] [1754707404.028572915] [hw_px3_node]: Tracking object. Move to: 164 (from x_angle=74.00)
+[hw_px3-2] [INFO] [1754707404.029087015] [hw_px3_node]: Send to Arduino: 164
+[hw_px3-2] [INFO] [1754707404.130256159] [hw_px3_node]: Tracking object. Move to: 166 (from x_angle=76.00)
+[hw_px3-2] [INFO] [1754707404.130756473] [hw_px3_node]: Send to Arduino: 166
+[hw_px3-2] [INFO] [1754707404.231928755] [hw_px3_node]: Tracking object. Move to: 168 (from x_angle=78.00)
+[hw_px3-2] [INFO] [1754707404.232398648] [hw_px3_node]: Send to Arduino: 168
+[hw_px3-2] [INFO] [1754707404.333552506] [hw_px3_node]: Tracking object. Move to: 170 (from x_angle=80.00)
+[hw_px3-2] [INFO] [1754707404.334067374] [hw_px3_node]: Send to Arduino: 170
+[px2-1] [INFO] [1754707404.353932655] [px2_node]: px2: sent=90 | last dt=50.006 ms | avg=50.001 ms (~20.00 Hz)
+[hw_px3-2] [INFO] [1754707404.435261351] [hw_px3_node]: Tracking object. Move to: 172 (from x_angle=82.00)
+[hw_px3-2] [INFO] [1754707404.435755103] [hw_px3_node]: Send to Arduino: 172
+[hw_px3-2] [INFO] [1754707404.536929541] [hw_px3_node]: Tracking object. Move to: 174 (from x_angle=84.00)
+[hw_px3-2] [INFO] [1754707404.537424073] [hw_px3_node]: Send to Arduino: 174
+[hw_px3-2] [INFO] [1754707404.638653297] [hw_px3_node]: Tracking object. Move to: 176 (from x_angle=86.00)
+[hw_px3-2] [INFO] [1754707404.639161629] [hw_px3_node]: Send to Arduino: 176
+[hw_px3-2] [INFO] [1754707404.740331369] [hw_px3_node]: Tracking object. Move to: 178 (from x_angle=88.00)
+[hw_px3-2] [INFO] [1754707404.740824133] [hw_px3_node]: Send to Arduino: 178
+[hw_px3-2] [INFO] [1754707404.842045051] [hw_px3_node]: Tracking object. Move to: 180 (from x_angle=90.00)
+[hw_px3-2] [INFO] [1754707404.842530757] [hw_px3_node]: Send to Arduino: 180
+[hw_px3-2] [INFO] [1754707404.943715192] [hw_px3_node]: Tracking object. Move to: 182 (from x_angle=92.00)
+[hw_px3-2] [INFO] [1754707404.944296266] [hw_px3_node]: Send to Arduino: 180
+[hw_px3-2] [INFO] [1754707405.045453558] [hw_px3_node]: Tracking object. Move to: 184 (from x_angle=94.00)
+[hw_px3-2] [INFO] [1754707405.045964501] [hw_px3_node]: Send to Arduino: 180
+[hw_px3-2] [INFO] [1754707405.147211337] [hw_px3_node]: Tracking object. Move to: 186 (from x_angle=96.00)
+[hw_px3-2] [INFO] [1754707405.147666291] [hw_px3_node]: Send to Arduino: 180
+[hw_px3-2] [INFO] [1754707405.248850377] [hw_px3_node]: Tracking object. Move to: 188 (from x_angle=98.00)
+[hw_px3-2] [INFO] [1754707405.249333169] [hw_px3_node]: Send to Arduino: 180
