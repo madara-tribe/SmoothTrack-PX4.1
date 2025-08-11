@@ -1,0 +1,54 @@
+px3 (Python) 
+
+## What px3 actually does
+In the px3 file I can see here, you set serial params, open the port, and create the subscriber; there’s no px3_ready publisher or 90° centering yet. The structure is:
+- Lines ~7–28: declare serial_port / baud, open serial, 2s delay (Arduino reset), log.
+- Lines ~30–38: create the subscription to inference.
+- Lines ~40–67: callback clamps 0–180 and writes "NN\n" to serial.
+- Lines ~79–89: spin / clean shutdown. 
+
+## What to fix in your flow text
+- Step 2 should explicitly say: publish px3_ready=True with QoS (RELIABLE + TRANSIENT_LOCAL) after centering the servo to 90°. That publisher isn’t in the attached px3 yet, but it’s required by the px2 handshake. (You added it in your newer variant—just make sure it’s actually in the file you’re running.) 
+
+## Corrected px3 flow (matches the system you’re building)
+1. Init: declare serial_port, baud, min_interval_s; open serial; sleep ~2 s; write 90\n to center the servo.
+2. “Ready” latch: publish px3_ready=True with QoS RELIABLE + TRANSIENT_LOCAL so px2 can start.
+3. Subscribe: to inference (AbsResult.x_angle is an absolute setpoint in degrees).
+4. Callback: rate‑limit (≥0.1 s), clamp 0–180, write "NN\n" to serial.
+5. Shutdown: close serial on exit.
+=> If your local px3 already includes the “ready” publisher and the 90° command, your flow is correct; if not, add them as above (your current visible px3 doesn’t publish px3_ready). 
+
+
+px2 (C++)
+## What px2 actually does
+This is almost perfect. Your current px2:
+- Declares all the parameters and creates the publisher to inference.
+- Subscribes to px3_ready with TRANSIENT_LOCAL QoS and flips flags so the pipeline starts only after px3 is ready.
+- Opens the camera and starts a timer that runs the DETECT→TRACK loop once.
+- In DETECT: runs YOLO, picks a candidate, computes error (xi vs. xc) → publishes an absolute servo setpoint (0–180) → initializes the OpenCV tracker → switches to TRACK.
+- In TRACK: updates the tracker each frame, computes the center error, converts to a servo setpoint, publishes; if tracking is lost for lost_max_frames, returns to DETECT. 
+
+
+## Two small corrections to your flow text
+- (Add) After handshake: right before the first detection cycle, px2 optionally commands 90° once if center_on_start=true. That step is present in your current code and isn’t listed in your flow. It ensures px2 and px3 both agree on the starting origin. 
+- Control logic detail: when you say “compute angle and send,” px2 can do that in two modes:
+    - control_mode="abs" (default): converts pixel error → degrees using camera HFOV and publishes an absolute [0–180] setpoint.
+    - control_mode="inc": uses “Δpixels → Δdegrees” and increments the last servo command. Your flow doesn’t mention the mode selection; it happens both in DETECT and TRACK. 
+
+## Corrected px2 flow (clean version)
+1. Init: declare params (HFOV/VFOV, gains, lost_max_frames, control_mode, etc.); create publisher (inference, reliable/volatile).
+2. Handshake: subscribe to px3_ready with RELIABLE + TRANSIENT_LOCAL; when true, set flags so the main loop can start.
+3. Camera: open V4L2 device; set size/FPS.
+4. Start loop (once ready): optionally publish 90° first if center_on_start=true.
+5. DETECT mode: run YOLO; if a valid bbox is found → compute center error (xi vs. xc).
+    - abs mode: map error to degrees via HFOV → compute absolute 0–180 setpoint; publish.
+    - inc mode: apply Δdeg = Kpx * Δpixels to previous setpoint; publish (clamped 0–180). Initialize OpenCV tracker with that bbox; switch to TRACK.
+6. TRACK mode: each frame, update tracker; if OK compute center error and publish new setpoint (in the selected control mode).
+7. Lost handling: if the tracker fails for lost_max_frames, release tracker and switch back to DETECT.
+8. Repeat: DETECT (5) ↔ TRACK (6–7) until end of stream. 
+
+## Why these fixes matter
+- The latched px3_ready removes race conditions—px2 won’t start moving before Arduino is up (and servo centered). 
+- Publishing absolute setpoints (0–180) from px2 makes px3 logic trivial and keeps both nodes in sync about where “90°” is. (Your visible px3 already clamps 0–180 and writes the number, so this matches perfectly.) 
+- The explicit control mode call‑out clarifies whether you want physically correct FOV‑based control (abs) or your “5px → 5°” behavior (inc). 
+
