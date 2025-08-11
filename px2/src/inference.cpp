@@ -4,6 +4,9 @@
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
 
+#include <optional>
+#include <algorithm>
+#include <cmath>
 #include <opencv2/tracking.hpp>   // needs opencv_contrib for CSRT; falls back to KCF
 
 using namespace std::chrono_literals;
@@ -23,6 +26,11 @@ namespace onnx_inference
     this->declare_parameter<int>("track_class", -1);     // -1 => any
     this->declare_parameter<bool>("save_frames", false);
 
+    // new control-mode params
+    this->declare_parameter<std::string>("control_mode", "abs"); // "abs" or "inc"
+    this->declare_parameter<double>("kpx_deg_per_px", 1.0);      // only for "inc"
+    this->declare_parameter<bool>("center_on_start", true);
+
     device_path      = this->get_parameter("device_path").as_string();
     hfov_deg_        = this->get_parameter("hfov_deg").as_double();
     vfov_deg_        = this->get_parameter("vfov_deg").as_double();
@@ -31,6 +39,9 @@ namespace onnx_inference
     lost_max_frames_ = this->get_parameter("lost_max_frames").as_int();
     track_class_     = this->get_parameter("track_class").as_int();
     save_frames_     = this->get_parameter("save_frames").as_bool();
+    control_mode_    = this->get_parameter("control_mode").as_string();
+    kpx_deg_per_px_  = this->get_parameter("kpx_deg_per_px").as_double();
+    center_on_start_ = this->get_parameter("center_on_start").as_bool();
 
     // ----- Publisher for servo setpoints -----
     rclcpp::QoS qos(10);
@@ -50,11 +61,6 @@ namespace onnx_inference
         }
       });
 
-    // Optional string trigger (kept from your file)
-    sub_ = this->create_subscription<std_msgs::msg::String>(
-      "/string_trigger", rclcpp::QoS{10},
-      std::bind(&OnnxInferenceNode::stringCallback, this, std::placeholders::_1));
-
     // ----- Open camera -----
     RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
     cap_.open(device_path);
@@ -69,13 +75,6 @@ namespace onnx_inference
 
     // Run the pipeline once when allowed
     timer_ = this->create_wall_timer(50ms, std::bind(&OnnxInferenceNode::callbackInference, this));
-  }
-
-  void OnnxInferenceNode::stringCallback(const std_msgs::msg::String::SharedPtr msg)
-  {
-    if (msg->data == "yes") {
-      inference_triggered_ = true;
-    }
   }
 
   std::pair<double, double> OnnxInferenceNode::computeCameraAngleFromBox(
@@ -95,11 +94,13 @@ namespace onnx_inference
 
   void OnnxInferenceNode::callbackInference()
   {
+    // ensure we start only once, and only after px3_ready flips us on
     if (started_ || !inference_triggered_) {
       return;
     }
-    started_ = true;          // ensure we only enter once
+    started_ = true;
     inference_triggered_ = false;
+
     RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline. Waiting for px3_ready=%s",
                 px3_ready_ ? "true" : "false");
 
@@ -108,6 +109,14 @@ namespace onnx_inference
       rclcpp::sleep_for(50ms);
     }
     RCLCPP_INFO(this->get_logger(), "[px2] px3_ready confirmed. Running…");
+
+    // Optional: ensure servo starts at 90° once
+    if (center_on_start_) {
+      custom_msgs::msg::AbsResult init;
+      init.x_angle = 90.0;
+      publishState(init);
+      servo_deg_ = 90;
+    }
 
     // Prepare YOLO
     YoloDetect yolo_detector(pkg_path + ONNX_YOLO_PATH);
@@ -146,9 +155,19 @@ namespace onnx_inference
         }
 
         if (picked) {
-          // compute error and publish absolute servo setpoint
+          // compute error
           auto [ax, ay] = computeCameraAngleFromBox(*picked, imsz, hfov_deg_, vfov_deg_);
-          int servo = servoSetpointFromError(ax);
+          int img_cx = imsz.width / 2;
+          int bx_cx  = (picked->x1 + picked->x2) / 2;
+          int dx     = bx_cx - img_cx;
+
+          // select control mode
+          int servo = 90;
+          if (control_mode_ == "inc") {
+            servo = servoUpdateIncremental(dx);
+          } else { // "abs"
+            servo = servoSetpointFromError(ax);
+          }
 
           custom_msgs::msg::AbsResult msg;
           msg.x_angle = static_cast<double>(servo);  // ABSOLUTE setpoint
@@ -193,9 +212,16 @@ namespace onnx_inference
           int img_cx = imsz.width / 2;
           int bx_cx  = static_cast<int>(track_box.x + track_box.width * 0.5);
           int dx     = bx_cx - img_cx;
-          double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
 
-          int servo = servoSetpointFromError(ax);
+          int servo = 90;
+          if (control_mode_ == "inc") {
+            // "5 px → 5°" when kpx_deg_per_px=1.0 (optionally inverted)
+            servo = servoUpdateIncremental(dx);
+          } else { // "abs": FOV-based degrees
+            double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
+            servo = servoSetpointFromError(ax);
+          }
+
           custom_msgs::msg::AbsResult msg;
           msg.x_angle = static_cast<double>(servo);
           publishState(msg);
@@ -222,8 +248,11 @@ namespace onnx_inference
 
   void OnnxInferenceNode::publishState(const custom_msgs::msg::AbsResult & message)
   {
-    RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", message.x_angle);
-    publisher_->publish(message);
+    double s = std::clamp(message.x_angle, 0.0, 180.0);
+    RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", s);
+    custom_msgs::msg::AbsResult out = message;
+    out.x_angle = s;
+    publisher_->publish(out);
   }
 }  // namespace onnx_inference
 
@@ -238,3 +267,4 @@ int main(int argc, char * argv[])
   rclcpp::shutdown();
   return 0;
 }
+

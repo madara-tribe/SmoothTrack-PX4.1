@@ -51,7 +51,7 @@ class AngleForwarder(Node):
 
         now = time.time()
         if now - self.last_send < self.min_interval:
-            return  # honor 0.1s gap
+            return  # honor 0.1 s gap
 
         try:
             self.ser.write(f"{servo}\n".encode('ascii'))

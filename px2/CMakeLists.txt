@@ -21,6 +21,7 @@ find_package(image_transport REQUIRED)
 # OpenCV
 find_package(OpenCV REQUIRED)
 find_package(custom_msgs REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui video tracking)
 
 # ONNX Runtime
 find_path(ONNX_RUNTIME_SESSION_INCLUDE_DIRS onnxruntime_cxx_api.h HINTS /usr/local/include/onnxruntime/core/session/)
