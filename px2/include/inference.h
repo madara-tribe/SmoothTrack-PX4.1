@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <atomic>
+#include <cmath>  // for std::lround
 
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -51,8 +52,8 @@ private:
   int   track_class_ = -1;    // -1 => any class
   bool  save_frames_ = false;
 
-  // Control mode (new)
-  std::string control_mode_ = "abs";   // "abs" or "inc"
+  // Control mode (optional: "abs" or "inc")
+  std::string control_mode_ = "abs";   // "abs" (default) or "inc"
   double kpx_deg_per_px_    = 1.0;     // used only in "inc" mode
   bool   center_on_start_   = true;    // publish 90° once after handshake
   int    servo_deg_         = 90;      // last commanded servo angle (for "inc")
@@ -71,17 +72,26 @@ private:
   // Control helpers
   inline int servoSetpointFromError(double angle_x_deg) const {
     double s = 90.0 + (invert_servo_ ? -kp_ : kp_) * angle_x_deg;
-    if (s < 0.0) s = 0.0; if (s > 180.0) s = 180.0;
+    if (s < 0.0) {
+      s = 0.0;
+    } else if (s > 180.0) {
+      s = 180.0;
+    }
     return static_cast<int>(std::lround(s));
   }
 
   inline int servoUpdateIncremental(int dx_px) {
     double delta = (invert_servo_ ? -1.0 : 1.0) * kpx_deg_per_px_ * static_cast<double>(dx_px);
     servo_deg_ += static_cast<int>(std::lround(delta));
-    if (servo_deg_ < 0) servo_deg_ = 0; if (servo_deg_ > 180) servo_deg_ = 180;
+    if (servo_deg_ < 0) {
+      servo_deg_ = 0;
+    } else if (servo_deg_ > 180) {
+      servo_deg_ = 180;
+    }
     return servo_deg_;
   }
 };
 
 }  // namespace onnx_inference
 #endif  // ONNX_INFERENCE_HPP_
+

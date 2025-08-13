@@ -1,25 +1,15 @@
-# bin/bash
-CAMERA_DEV="/dev/video2"
-ARDUINO_DEV="/dev/ttyACM1"
-# Check if Arduino and CAM device exists
-if [ ! -e "$CAMERA_DEV" ]; then
-  echo "Error: $CAMERA_DEV not found on host."
-  exit 1
-fi
+#!/bin/bash
 
-#if [ ! -e "$ARDUINO_DEV" ]; then
-#  echo "Error: $ARDUINO_DEV not found on host."
-#  exit 1
-#fi
-xhost +local:docker
+# Path to serial device on host
+DEVICE=/dev/cu.usbserial-DK0FJVDT
 
+
+# Run Docker container
 docker run -it --rm \
-  --net=host \
   --privileged \
-  --env="DISPLAY=$DISPLAY" \
-  --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-  --device=/dev/video-cam:$CAMERA_DEV \
-  --group-add video \
-  -v /home/hagi/Downloads/place/:/ros2_ws \
-  testdep:latest
+  --device=${DEVICE}:${DEVICE} \
+  -v /Users/hagi/downloads/place/:/ros2_ws \
+  --name px3-container \
+  test:latest
+
 # v4l2-ctl --list-devices

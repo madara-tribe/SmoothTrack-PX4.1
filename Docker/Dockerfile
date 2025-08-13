@@ -36,26 +36,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         protobuf-compiler zlib1g-dev swig vim gdb valgrind \
         libsm6 libxext6 libxrender-dev unzip sudo
 
-
-
 # install Opencv
-ENV OPENCV_VERSION=4.7.0
-RUN cd /tmp \
-    && wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip \
-	&& unzip ${OPENCV_VERSION}.zip \
-	&& rm ${OPENCV_VERSION}.zip
-RUN cd /tmp/opencv-${OPENCV_VERSION} \
-	&& mkdir build \
-	&& cd build \
-	&& cmake \
-		-DCMAKE_BUILD_TYPE=RELEASE \
-		-DCMAKE_INSTALL_PREFIX=/usr/local \
-		-DENABLE_PRECOMPILED_HEADERS=OFF ..
-RUN cd /tmp/opencv-${OPENCV_VERSION}/build \
-    && make -j 8 \
-	&& make install \
-	&& ldconfig
+# ---- OpenCV 4.7.0 + contrib (with tracking) ----
+ARG OPENCV_VERSION=4.7.0
 
+# (A) Build deps
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential cmake git pkg-config \
+    libjpeg-dev libpng-dev libtiff-dev \
+    libgtk-3-dev \
+    libavcodec-dev libavformat-dev libswscale-dev \
+    libv4l-dev libxvidcore-dev libx264-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libtbb-dev libeigen3-dev libopenexr-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# (B) Remove any preinstalled OpenCV that would mask our build (optional but recommended)
+RUN apt-get purge -y '*opencv*' || true && rm -rf /usr/local/include/opencv* /usr/local/lib/libopencv_* || true
+
+# (C) Fetch sources
+WORKDIR /tmp
+RUN git clone --branch ${OPENCV_VERSION} --depth 1 https://github.com/opencv/opencv.git && \
+    git clone --branch ${OPENCV_VERSION} --depth 1 https://github.com/opencv/opencv_contrib.git
+
+# (D) Configure + build + install (with contrib + tracking)
+RUN mkdir -p /tmp/opencv/build && cd /tmp/opencv/build && \
+    cmake -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_INSTALL_PREFIX=/usr/local \
+          -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
+          -D OPENCV_ENABLE_NONFREE=ON \
+          -D OPENCV_GENERATE_PKGCONFIG=ON \
+          -D BUILD_EXAMPLES=OFF -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF \
+          -D WITH_GSTREAMER=ON -D WITH_V4L=ON -D WITH_FFMPEG=ON \
+          -D BUILD_opencv_tracking=ON \
+          -D BUILD_SHARED_LIBS=ON \
+          .. && \
+    make -j"$(nproc)" && make install && ldconfig
 
 # Install PyTorch for C++ https://pytorch.org
 # LibTorch using cxx11 ABI instead of Pre-cxx11 ABI

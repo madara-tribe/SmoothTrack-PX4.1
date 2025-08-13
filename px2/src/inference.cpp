@@ -7,7 +7,7 @@
 #include <optional>
 #include <algorithm>
 #include <cmath>
-#include <opencv2/tracking.hpp>   // needs opencv_contrib for CSRT; falls back to KCF
+#include <opencv2/tracking.hpp>
 
 using namespace std::chrono_literals;
 
@@ -26,7 +26,7 @@ namespace onnx_inference
     this->declare_parameter<int>("track_class", -1);     // -1 => any
     this->declare_parameter<bool>("save_frames", false);
 
-    // new control-mode params
+    // control-mode params
     this->declare_parameter<std::string>("control_mode", "abs"); // "abs" or "inc"
     this->declare_parameter<double>("kpx_deg_per_px", 1.0);      // only for "inc"
     this->declare_parameter<bool>("center_on_start", true);
@@ -104,7 +104,7 @@ namespace onnx_inference
     RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline. Waiting for px3_ready=%s",
                 px3_ready_ ? "true" : "false");
 
-    // --- Wait (just in case) until px3_ready observed ---
+    // --- Wait until px3_ready observed ---
     while (rclcpp::ok() && !px3_ready_) {
       rclcpp::sleep_for(50ms);
     }
@@ -125,7 +125,7 @@ namespace onnx_inference
 
     // Prepare tracker
     cv::Ptr<cv::Tracker> tracker;
-    cv::Rect2d track_box;
+    cv::Rect track_box;   // use int Rect to match many update() signatures
     int lost_frames = 0;
 
     enum class Mode { DETECT, TRACK };
@@ -174,7 +174,7 @@ namespace onnx_inference
           publishState(msg);
 
           // init tracker
-          cv::Rect2d box(
+          cv::Rect box(
             std::min(picked->x1, picked->x2),
             std::min(picked->y1, picked->y2),
             std::abs(picked->x2 - picked->x1),
@@ -183,14 +183,13 @@ namespace onnx_inference
           try { tracker = cv::TrackerCSRT::create(); }
           catch (...) { tracker = cv::TrackerKCF::create(); }
 
-          if (!tracker->init(frame, box)) {
-            RCLCPP_WARN(this->get_logger(), "[px2] tracker init failed; stay in DETECT");
-          } else {
-            track_box = box;
-            lost_frames = 0;
-            mode = Mode::TRACK;
-            RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (servo=%d°, err_x=%.2f°)", servo, ax);
-          }
+          // init() may be void; call it and rely on update() to validate
+          tracker->init(frame, box);
+
+          track_box   = box;
+          lost_frames = 0;
+          mode        = Mode::TRACK;
+          RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (servo=%d°, err_x=%.2f°)", servo, ax);
         }
 
         if (save_frames_) {
@@ -200,7 +199,7 @@ namespace onnx_inference
 
       } else { // TRACK mode
         bool ok = tracker->update(frame, track_box);
-        if (!ok || track_box.area() <= 1.0 ||
+        if (!ok || track_box.area() <= 1 ||
             track_box.x < 0 || track_box.y < 0 ||
             track_box.x + track_box.width  > imsz.width ||
             track_box.y + track_box.height > imsz.height) {
@@ -248,7 +247,7 @@ namespace onnx_inference
 
   void OnnxInferenceNode::publishState(const custom_msgs::msg::AbsResult & message)
   {
-    double s = std::clamp(message.x_angle, 0.0, 180.0);
+    double s = std::clamp(static_cast<double>(message.x_angle), 0.0, 180.0);
     RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", s);
     custom_msgs::msg::AbsResult out = message;
     out.x_angle = s;
@@ -267,4 +266,3 @@ int main(int argc, char * argv[])
   rclcpp::shutdown();
   return 0;
 }
-
