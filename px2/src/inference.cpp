@@ -193,7 +193,7 @@ namespace onnx_inference
         }
 
         if (save_frames_) {
-          std::string out = pkg_path + std::string("/data/frames/detect_") + std::to_string(frame_id) + ".png";
+          std::string out = pkg_path + std::string("/data/detect_") + std::to_string(frame_id) + ".png";
           cv::imwrite(out, vis);
         }
 

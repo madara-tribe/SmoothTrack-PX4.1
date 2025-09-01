@@ -45,7 +45,7 @@ class AngleForwarder(Node):
         self.last_send = 0.0
 
     def callback(self, msg: AbsResult):
-        servo = int(round(msg.x_angle))     # absolute target [0..180]
+        servo = int(180 - round(msg.x_angle))     # absolute target [0..180]
         if servo < 0: servo = 0
         if servo > 180: servo = 180
 
