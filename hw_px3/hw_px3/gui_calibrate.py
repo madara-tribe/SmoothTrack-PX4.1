@@ -19,7 +19,7 @@ except serial.SerialException as e:
 def send_angle(value):
     if ser and ser.is_open:
         try:
-            angle = int(180 - float(value))
+            angle = int(180 - round(float(value)))
             ser.write(f"{angle}\n".encode())
             print(f"Sent angle: {angle}")
         except Exception as e:

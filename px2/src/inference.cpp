@@ -7,12 +7,63 @@
 #include <optional>
 #include <algorithm>
 #include <cmath>
-#include <opencv2/tracking.hpp>
+#include <vector>
+
+#include <opencv2/tracking.hpp>   // CSRT/KCF live here (opencv_contrib tracking)
+#include <opencv2/imgproc.hpp>
 
 using namespace std::chrono_literals;
 
 namespace onnx_inference
 {
+  // Convert any common frame to CV_8UC3 (BGR). If enforce_bgr8=false, returns src.
+  // Convert any common frame to CV_8UC3 (BGR). If enforce_bgr8=false, returns src.
+static inline cv::Mat to_bgr8(const cv::Mat& src, bool enforce_bgr8)
+{
+  if (!enforce_bgr8) return src;
+  if (src.type() == CV_8UC3) return src;
+
+  cv::Mat tmp = src;
+  // 1) Convert depth to 8U if needed
+  if (src.depth() != CV_8U) {
+    double alpha = 1.0, beta = 0.0;
+    if (src.depth() == CV_16U)      alpha = 1.0 / 256.0;  // 16U -> 8U
+    else if (src.depth() == CV_32F) alpha = 255.0;        // 32F -> 8U
+    src.convertTo(tmp, CV_8U, alpha, beta);
+  }
+
+  // 2) Convert channels to 3 (BGR)
+  cv::Mat dst;
+  const int ch = tmp.channels();
+  if (ch == 3) {
+    dst = tmp;  // already BGR8
+  } else if (ch == 1) {
+    cv::cvtColor(tmp, dst, cv::COLOR_GRAY2BGR);
+  } else if (ch == 4) {
+    cv::cvtColor(tmp, dst, cv::COLOR_BGRA2BGR);
+  } else {
+    // Fallback: keep the first 3 channels
+    std::vector<cv::Mat> channels;
+    cv::split(tmp, channels);
+    while (channels.size() < 3) channels.push_back(channels.back());
+    cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, dst);
+  }
+  return dst;
+}
+  // Make tracker by type string
+  static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
+  {
+    cv::Ptr<cv::Tracker> t;
+    try {
+      if (type == "KCF")      t = cv::TrackerKCF::create();
+      else if (type == "CSRT") t = cv::TrackerCSRT::create();
+      else /* none / unknown */ t.release();
+    } catch (...) {
+      t.release();
+    }
+    return t; // may be empty if tracking module isn't present
+  }
+
   OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   : Node("px2", options)
   {
@@ -26,22 +77,32 @@ namespace onnx_inference
     this->declare_parameter<int>("track_class", -1);     // -1 => any
     this->declare_parameter<bool>("save_frames", false);
 
-    // control-mode params
+    // Control-mode params (Option C friendly)
     this->declare_parameter<std::string>("control_mode", "abs"); // "abs" or "inc"
     this->declare_parameter<double>("kpx_deg_per_px", 1.0);      // only for "inc"
+    this->declare_parameter<int>("deadband_px", 3);
+    this->declare_parameter<double>("max_step_deg", 8.0);
     this->declare_parameter<bool>("center_on_start", true);
 
-    device_path      = this->get_parameter("device_path").as_string();
-    hfov_deg_        = this->get_parameter("hfov_deg").as_double();
-    vfov_deg_        = this->get_parameter("vfov_deg").as_double();
-    kp_              = this->get_parameter("kp").as_double();
-    invert_servo_    = this->get_parameter("invert_servo").as_bool();
-    lost_max_frames_ = this->get_parameter("lost_max_frames").as_int();
-    track_class_     = this->get_parameter("track_class").as_int();
-    save_frames_     = this->get_parameter("save_frames").as_bool();
-    control_mode_    = this->get_parameter("control_mode").as_string();
-    kpx_deg_per_px_  = this->get_parameter("kpx_deg_per_px").as_double();
-    center_on_start_ = this->get_parameter("center_on_start").as_bool();
+    // Tracker params
+    this->declare_parameter<std::string>("tracker_type", "KCF"); // "KCF" | "CSRT" | "none"
+    this->declare_parameter<bool>("enforce_bgr8", true);
+
+    device_path       = this->get_parameter("device_path").as_string();
+    hfov_deg_         = this->get_parameter("hfov_deg").as_double();
+    vfov_deg_         = this->get_parameter("vfov_deg").as_double();
+    kp_               = this->get_parameter("kp").as_double();
+    invert_servo_     = this->get_parameter("invert_servo").as_bool();
+    lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
+    track_class_      = this->get_parameter("track_class").as_int();
+    save_frames_      = this->get_parameter("save_frames").as_bool();
+    control_mode_     = this->get_parameter("control_mode").as_string();
+    kpx_deg_per_px_   = this->get_parameter("kpx_deg_per_px").as_double();
+    deadband_px_      = this->get_parameter("deadband_px").as_int();
+    max_step_deg_     = this->get_parameter("max_step_deg").as_double();
+    center_on_start_  = this->get_parameter("center_on_start").as_bool();
+    tracker_type_     = this->get_parameter("tracker_type").as_string();
+    enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
 
     // ----- Publisher for servo setpoints -----
     rclcpp::QoS qos(10);
@@ -63,7 +124,7 @@ namespace onnx_inference
 
     // ----- Open camera -----
     RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
-    cap_.open(device_path);
+    cap_.open(device_path); // optionally: cap_.open(device_path, cv::CAP_V4L2);
     if (!cap_.isOpened()) {
       RCLCPP_ERROR(this->get_logger(), "Failed to open camera device: %s", device_path.c_str());
       rclcpp::shutdown();
@@ -125,7 +186,7 @@ namespace onnx_inference
 
     // Prepare tracker
     cv::Ptr<cv::Tracker> tracker;
-    cv::Rect track_box;   // use int Rect to match many update() signatures
+    cv::Rect track_box;   // int Rect to match common update() signatures
     int lost_frames = 0;
 
     enum class Mode { DETECT, TRACK };
@@ -137,6 +198,9 @@ namespace onnx_inference
     while (rclcpp::ok() && cap_.read(frame)) {
       if (frame.empty()) break;
       const cv::Size imsz = frame.size();
+
+      // Convert for tracker if needed
+      cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
 
       if (mode == Mode::DETECT) {
         // YOLO until target appears
@@ -155,51 +219,81 @@ namespace onnx_inference
         }
 
         if (picked) {
-          // compute error
-          auto [ax, ay] = computeCameraAngleFromBox(*picked, imsz, hfov_deg_, vfov_deg_);
-          int img_cx = imsz.width / 2;
-          int bx_cx  = (picked->x1 + picked->x2) / 2;
-          int dx     = bx_cx - img_cx;
-
-          // select control mode
-          int servo = 90;
-          if (control_mode_ == "inc") {
-            servo = servoUpdateIncremental(dx);
-          } else { // "abs"
-            servo = servoSetpointFromError(ax);
-          }
-
-          custom_msgs::msg::AbsResult msg;
-          msg.x_angle = static_cast<double>(servo);  // ABSOLUTE setpoint
-          publishState(msg);
-
-          // init tracker
+          // bbox sanity
           cv::Rect box(
             std::min(picked->x1, picked->x2),
             std::min(picked->y1, picked->y2),
-            std::abs(picked->x2 - picked->x1),
-            std::abs(picked->y2 - picked->y1)
+            std::max(1, std::abs(picked->x2 - picked->x1)),
+            std::max(1, std::abs(picked->y2 - picked->y1))
           );
-          try { tracker = cv::TrackerCSRT::create(); }
-          catch (...) { tracker = cv::TrackerKCF::create(); }
+          box &= cv::Rect(0, 0, imsz.width, imsz.height);
+          if (box.area() <= 1) {
+            RCLCPP_WARN(this->get_logger(), "[px2] DETECT degenerate bbox; stay in DETECT");
+          } else {
+            // compute error → servo
+            int img_cx = imsz.width / 2;
+            int bx_cx  = (picked->x1 + picked->x2) / 2;
+            int dx     = bx_cx - img_cx;
 
-          // init() may be void; call it and rely on update() to validate
-          tracker->init(frame, box);
+            int servo = 90;
+            if (control_mode_ == "inc") {
+              servo = servoUpdateIncremental(dx);  // deadband + rate limit
+            } else { // "abs"
+              auto [ax, ay] = computeCameraAngleFromBox(*picked, imsz, hfov_deg_, vfov_deg_);
+              int desired = servoSetpointFromError(ax);
+              servo = rateLimitAndClamp(desired);
+            }
 
-          track_box   = box;
-          lost_frames = 0;
-          mode        = Mode::TRACK;
-          RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (servo=%d°, err_x=%.2f°)", servo, ax);
+            custom_msgs::msg::AbsResult msg;
+            msg.x_angle = static_cast<double>(servo);  // ABSOLUTE setpoint
+            publishState(msg);
+
+            // If tracking disabled, remain in DETECT
+            if (tracker_type_ == "none") {
+              RCLCPP_WARN(this->get_logger(),
+                "[px2] tracker_type=none → staying in DETECT (no OpenCV tracker).");
+            } else {
+              // Make tracker safely
+              tracker = make_tracker(tracker_type_);
+              if (tracker.empty()) {
+                RCLCPP_ERROR(this->get_logger(),
+                  "[px2] OpenCV tracker '%s' unavailable. Staying in DETECT.",
+                  tracker_type_.c_str());
+              } else {
+                // init() may segfault in bad builds; we minimize risk by forcing BGR8
+                try {
+                  tracker->init(frame_bgr, box);  // some builds return void; fine
+                  track_box   = box;
+                  lost_frames = 0;
+                  mode        = Mode::TRACK;
+                  RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo=%d°)",
+                              tracker_type_.c_str(), servo);
+                } catch (const cv::Exception& e) {
+                  RCLCPP_ERROR(this->get_logger(),
+                    "[px2] tracker->init threw: %s. Staying in DETECT.", e.what());
+                  tracker.release();
+                }
+              }
+            }
+          }
         }
 
         if (save_frames_) {
-          std::string out = pkg_path + std::string("/data/detect_") + std::to_string(frame_id) + ".png";
+          std::string out = pkg_path + std::string("/data/frames/detect_") + std::to_string(frame_id) + ".png";
           cv::imwrite(out, vis);
         }
 
       } else { // TRACK mode
-        bool ok = tracker->update(frame, track_box);
-        if (!ok || track_box.area() <= 1 ||
+        bool ok = false;
+        try {
+          ok = tracker && tracker->update(frame_bgr, track_box);
+        } catch (const cv::Exception& e) {
+          RCLCPP_ERROR(this->get_logger(), "[px2] tracker->update threw: %s", e.what());
+          ok = false;
+        }
+
+        if (!ok ||
+            track_box.area() <= 1 ||
             track_box.x < 0 || track_box.y < 0 ||
             track_box.x + track_box.width  > imsz.width ||
             track_box.y + track_box.height > imsz.height) {
@@ -207,18 +301,17 @@ namespace onnx_inference
         } else {
           lost_frames = 0;
 
-          // error based on bbox center vs image center
           int img_cx = imsz.width / 2;
           int bx_cx  = static_cast<int>(track_box.x + track_box.width * 0.5);
           int dx     = bx_cx - img_cx;
 
           int servo = 90;
           if (control_mode_ == "inc") {
-            // "5 px → 5°" when kpx_deg_per_px=1.0 (optionally inverted)
-            servo = servoUpdateIncremental(dx);
-          } else { // "abs": FOV-based degrees
+            servo = servoUpdateIncremental(dx);  // deadband + rate limit
+          } else { // "abs"
             double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
-            servo = servoSetpointFromError(ax);
+            int desired = servoSetpointFromError(ax);
+            servo = rateLimitAndClamp(desired);
           }
 
           custom_msgs::msg::AbsResult msg;
@@ -266,3 +359,4 @@ int main(int argc, char * argv[])
   rclcpp::shutdown();
   return 0;
 }
+
