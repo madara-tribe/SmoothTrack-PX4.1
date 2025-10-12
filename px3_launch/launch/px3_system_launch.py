@@ -36,7 +36,6 @@ def generate_launch_description():
     arg_serial   = DeclareLaunchArgument('serial_port',     default_value='/dev/ttyACM0')
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
     arg_gap      = DeclareLaunchArgument('min_interval_s',  default_value='0.10')
-    arg_flip     = DeclareLaunchArgument('px3_flip',        default_value='true', description='flip 180-angle in px3')
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
     px3_node = Node(
@@ -49,7 +48,6 @@ def generate_launch_description():
             'serial_port':     LaunchConfiguration('serial_port'),
             'baud':            ParameterValue(LaunchConfiguration('baud'),            value_type=int),
             'min_interval_s':  ParameterValue(LaunchConfiguration('min_interval_s'),  value_type=float),
-            'flip':            ParameterValue(LaunchConfiguration('px3_flip'),        value_type=bool),
         }]
     )
 
@@ -89,7 +87,7 @@ def generate_launch_description():
         arg_camera, arg_hfov, arg_vfov,
         arg_kp, arg_maxstep, arg_invert, arg_center, arg_lost, arg_cls, arg_save,
         arg_tracker, arg_bgr8,
-        arg_serial, arg_baud, arg_gap, arg_flip,
+        arg_serial, arg_baud, arg_gap,
         # nodes
         px3_node, px2_node
     ])

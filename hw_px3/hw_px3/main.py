@@ -15,12 +15,10 @@ class AngleForwarder(Node):
         self.declare_parameter('serial_port', '/dev/ttyACM0')
         self.declare_parameter('baud', 9600)
         self.declare_parameter('min_interval_s', 0.10)  # min gap between serial writes
-        self.declare_parameter('flip', True)            # True: send 180-angle; False: send angle as-is
 
         port = self.get_parameter('serial_port').get_parameter_value().string_value
         baud = self.get_parameter('baud').get_parameter_value().integer_value
         self.min_interval = float(self.get_parameter('min_interval_s').get_parameter_value().double_value)
-        self.flip = bool(self.get_parameter('flip').get_parameter_value().bool_value)
 
         # --- Serial open & center ---
         self.ser = serial.Serial(port, baudrate=baud, timeout=0.1)
@@ -51,7 +49,7 @@ class AngleForwarder(Node):
 
     def _on_angle(self, msg: AbsResult):
         base = int(round(msg.x_angle))
-        servo = 180 - base if self.flip else base
+        servo = base
         if servo < 0: servo = 0
         if servo > 180: servo = 180
 
