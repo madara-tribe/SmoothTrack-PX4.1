@@ -19,14 +19,11 @@ def generate_launch_description():
     arg_hfov     = DeclareLaunchArgument('hfov_deg',        default_value='62.0')
     arg_vfov     = DeclareLaunchArgument('vfov_deg',        default_value='48.0')
 
-    # Control (abs/inc)
-    arg_ctrlmode = DeclareLaunchArgument('control_mode',    default_value='abs',  description='abs | inc')
+    # ABS control only
     arg_kp       = DeclareLaunchArgument('kp',              default_value='1.0')
-    arg_kpx      = DeclareLaunchArgument('kpx_deg_per_px',  default_value='1.0',  description='deg per pixel (inc mode)')
-    arg_deadband = DeclareLaunchArgument('deadband_px',     default_value='3',    description='no move if |dx| <= deadband')
     arg_maxstep  = DeclareLaunchArgument('max_step_deg',    default_value='8.0',  description='max deg per update')
     arg_invert   = DeclareLaunchArgument('invert_servo',    default_value='false')
-    arg_center   = DeclareLaunchArgument('center_on_start', default_value='true')
+    arg_center   = DeclareLaunchArgument('center_on_start', default_value='false')  # px3 centers at boot
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
     arg_cls      = DeclareLaunchArgument('track_class',     default_value='-1')
     arg_save     = DeclareLaunchArgument('save_frames',     default_value='false')
@@ -39,6 +36,7 @@ def generate_launch_description():
     arg_serial   = DeclareLaunchArgument('serial_port',     default_value='/dev/ttyACM0')
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
     arg_gap      = DeclareLaunchArgument('min_interval_s',  default_value='0.10')
+    arg_flip     = DeclareLaunchArgument('px3_flip',        default_value='true', description='flip 180-angle in px3')
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
     px3_node = Node(
@@ -51,12 +49,13 @@ def generate_launch_description():
             'serial_port':     LaunchConfiguration('serial_port'),
             'baud':            ParameterValue(LaunchConfiguration('baud'),            value_type=int),
             'min_interval_s':  ParameterValue(LaunchConfiguration('min_interval_s'),  value_type=float),
+            'flip':            ParameterValue(LaunchConfiguration('px3_flip'),        value_type=bool),
         }]
     )
 
-    # -------- px2 node: waits for px3_ready, then DETECT → TRACK --------
+    # -------- px2 node: waits for px3_ready, then DETECT → (optional) TRACK --------
     px2_node = TimerAction(
-        period=1.0,  # give px3 a moment to come up and publish px3_ready
+        period=1.0,  # give px3 a moment to publish px3_ready (latched)
         actions=[Node(
             package=LaunchConfiguration('px2_pkg'),
             executable=LaunchConfiguration('px2_exec'),
@@ -68,10 +67,7 @@ def generate_launch_description():
                 'hfov_deg':        ParameterValue(LaunchConfiguration('hfov_deg'),        value_type=float),
                 'vfov_deg':        ParameterValue(LaunchConfiguration('vfov_deg'),        value_type=float),
 
-                'control_mode':    LaunchConfiguration('control_mode'),  # abs | inc
                 'kp':              ParameterValue(LaunchConfiguration('kp'),              value_type=float),
-                'kpx_deg_per_px':  ParameterValue(LaunchConfiguration('kpx_deg_per_px'),  value_type=float),
-                'deadband_px':     ParameterValue(LaunchConfiguration('deadband_px'),     value_type=int),
                 'max_step_deg':    ParameterValue(LaunchConfiguration('max_step_deg'),    value_type=float),
                 'invert_servo':    ParameterValue(LaunchConfiguration('invert_servo'),    value_type=bool),
                 'center_on_start': ParameterValue(LaunchConfiguration('center_on_start'), value_type=bool),
@@ -91,11 +87,9 @@ def generate_launch_description():
         # args
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
         arg_camera, arg_hfov, arg_vfov,
-        arg_ctrlmode, arg_kp, arg_kpx, arg_deadband, arg_maxstep,
-        arg_invert, arg_center, arg_lost, arg_cls, arg_save,
+        arg_kp, arg_maxstep, arg_invert, arg_center, arg_lost, arg_cls, arg_save,
         arg_tracker, arg_bgr8,
-        arg_serial, arg_baud, arg_gap,
+        arg_serial, arg_baud, arg_gap, arg_flip,
         # nodes
         px3_node, px2_node
     ])
-
