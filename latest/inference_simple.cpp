@@ -1,0 +1,316 @@
+#include "inference_simple.h"
+
+#define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
+#define YOLO_INPUT_H 640
+#define YOLO_INPUT_W 640
+
+#include <optional>
+#include <algorithm>
+#include <vector>
+
+#include <opencv2/tracking.hpp>   // CSRT/KCF (opencv_contrib)
+#include <opencv2/imgproc.hpp>
+
+using namespace std::chrono_literals;
+
+namespace onnx_inference
+{
+// Convert any common frame to CV_8UC3 (BGR). If enforce_bgr8=false, returns src.
+static inline cv::Mat to_bgr8(const cv::Mat& src, bool enforce_bgr8)
+{
+  if (!enforce_bgr8) return src;
+  if (src.type() == CV_8UC3) return src;
+
+  cv::Mat tmp = src;
+  // 1) Convert depth to 8U if needed
+  if (src.depth() != CV_8U) {
+    double alpha = 1.0, beta = 0.0;
+    if (src.depth() == CV_16U)      alpha = 1.0 / 256.0;  // 16U -> 8U
+    else if (src.depth() == CV_32F) alpha = 255.0;        // 32F -> 8U
+    src.convertTo(tmp, CV_8U, alpha, beta);
+  }
+
+  // 2) Convert channels to 3 (BGR)
+  cv::Mat dst;
+  if (tmp.type() == CV_8UC2) {                     // YUYV (YUY2)
+    cv::cvtColor(tmp, dst, cv::COLOR_YUV2BGR_YUY2);
+    return dst;
+  }
+  const int ch = tmp.channels();
+  if (ch == 3) {
+    dst = tmp;                                      // already BGR8
+  } else if (ch == 1) {
+    cv::cvtColor(tmp, dst, cv::COLOR_GRAY2BGR);
+  } else if (ch == 4) {
+    cv::cvtColor(tmp, dst, cv::COLOR_BGRA2BGR);
+  } else {
+    // Fallback: keep first 3 channels
+    std::vector<cv::Mat> channels;
+    cv::split(tmp, channels);
+    while (channels.size() < 3) channels.push_back(channels.back());
+    cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, dst);
+  }
+  return dst;
+}
+
+// Make tracker by type string
+static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
+{
+  cv::Ptr<cv::Tracker> t;
+  try {
+    if (type == "KCF")       t = cv::TrackerKCF::create();
+    else if (type == "CSRT") t = cv::TrackerCSRT::create();
+    else /* none / unknown */ t.release();
+  } catch (...) {
+    t.release();
+  }
+  return t; // may be empty if tracking module isn't present
+}
+
+OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
+: Node("px2", options)
+{
+  // ----- Params -----
+  this->declare_parameter<std::string>("device_path", "/dev/video2");
+  this->declare_parameter<double>("hfov_deg", 62.0);
+  this->declare_parameter<double>("vfov_deg", 48.0);
+  this->declare_parameter<double>("kp", 1.0);
+  this->declare_parameter<bool>("invert_servo", false);
+  this->declare_parameter<int>("lost_max_frames", 15);
+  this->declare_parameter<int>("track_class", -1);     // -1 => any
+  this->declare_parameter<bool>("save_frames", false);
+  this->declare_parameter<double>("max_step_deg", 8.0);
+  this->declare_parameter<bool>("center_on_start", false); // px3 centers
+  this->declare_parameter<std::string>("tracker_type", "KCF"); // "KCF" | "CSRT" | "none"
+  this->declare_parameter<bool>("enforce_bgr8", true);
+
+  device_path       = this->get_parameter("device_path").as_string();
+  hfov_deg_         = this->get_parameter("hfov_deg").as_double();
+  vfov_deg_         = this->get_parameter("vfov_deg").as_double();
+  kp_               = this->get_parameter("kp").as_double();
+  invert_servo_     = this->get_parameter("invert_servo").as_bool();
+  lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
+  track_class_      = this->get_parameter("track_class").as_int();
+  save_frames_      = this->get_parameter("save_frames").as_bool();
+  max_step_deg_     = this->get_parameter("max_step_deg").as_double();
+  center_on_start_  = this->get_parameter("center_on_start").as_bool();
+  tracker_type_     = this->get_parameter("tracker_type").as_string();
+  enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
+
+  // ----- Publisher for servo setpoints -----
+  rclcpp::QoS qos(10);
+  qos.reliable().durability_volatile(); // stream; don't latch servo commands
+  publisher_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
+
+  // ----- px3_ready (latched) -----
+  rclcpp::QoS ready_qos(1);
+  ready_qos.reliable().transient_local();  // receive latched True
+  px3_ready_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "px3_ready", ready_qos,
+    [this](const std_msgs::msg::Bool::SharedPtr msg){
+      if (msg->data) {
+        px3_ready_ = true;
+        RCLCPP_INFO(this->get_logger(), "px2: received px3_ready=True");
+      }
+    });
+
+  // ----- Open camera -----
+  RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
+  cap_.open(device_path); // optionally: cap_.open(device_path, cv::CAP_V4L2);
+  if (!cap_.isOpened()) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to open camera device: %s", device_path.c_str());
+    rclcpp::shutdown();
+    return;
+  }
+  cap_.set(cv::CAP_PROP_FPS, 30);
+  cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+  cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+
+  // ---- Load YOLO once ----
+  yolo_ = std::make_unique<YoloDetect>(pkg_path + std::string(ONNX_YOLO_PATH));
+  // Optional: if your YoloDetect supports modes
+  // yolo_->setTrackingMode(SINGLE);
+
+  // Run the pipeline once when allowed
+  timer_ = this->create_wall_timer(50ms, std::bind(&OnnxInferenceNode::callbackInference, this));
+}
+
+std::pair<double, double> OnnxInferenceNode::computeCameraAngleFromBox(
+    const Result& result, const cv::Size& imageSize, double HFOV_deg, double VFOV_deg) {
+  const int box_cx = (result.x1 + result.x2) / 2;
+  const int box_cy = (result.y1 + result.y2) / 2;
+  const int img_cx = imageSize.width / 2;
+  const int img_cy = imageSize.height / 2;
+
+  const int dx = box_cx - img_cx;
+  const int dy = box_cy - img_cy;
+
+  const double angle_x = (static_cast<double>(dx) / imageSize.width)  * HFOV_deg;
+  const double angle_y = (static_cast<double>(dy) / imageSize.height) * VFOV_deg;
+  return {angle_x, angle_y};
+}
+
+void OnnxInferenceNode::callbackInference()
+{
+  // ensure we start only once, and only after px3_ready flips us on
+  if (started_ || !px3_ready_) return;
+  started_ = true;
+
+  RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
+
+  // Optional: ensure servo starts at 90° once
+  if (center_on_start_) {
+    publishState(90.0);
+    servo_deg_ = 90;
+  }
+
+  // Prepare tracker runtime
+  cv::Ptr<cv::Tracker> tracker;
+  cv::Rect2d track_box;   // prefer 2d rect for trackers
+  int lost_frames = 0;
+
+  enum class Mode { DETECT, TRACK };
+  Mode mode = Mode::DETECT;
+
+  int frame_id = 0;
+  cv::Mat frame;
+
+  while (rclcpp::ok() && cap_.read(frame)) {
+    if (frame.empty()) continue;
+    const cv::Size imsz = frame.size();
+
+    if (mode == Mode::DETECT) {
+      // YOLO until target appears
+      cv::Mat inputImage = yolo_->preprocess(frame, YOLO_INPUT_H, YOLO_INPUT_W);
+      std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
+      std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
+
+      if (save_frames_) {
+        cv::Mat vis = yolo_->drawBoundingBox(frame, results);
+        cv::imwrite(pkg_path + "/data/frames/detect_" + std::to_string(frame_id) + ".png", vis);
+      }
+
+      // pick one candidate (best confidence; filter by class if requested)
+      std::optional<Result> picked;
+      float best_conf = -1.f;
+      for (const auto& r : results) {
+        if (track_class_ >= 0 && r.obj_id != track_class_) continue;
+        if (r.conf > best_conf) { best_conf = r.conf; picked = r; }
+      }
+      if (!picked) { ++frame_id; continue; }
+
+      // bbox sanity
+      cv::Rect2d box(
+        std::min(picked->x1, picked->x2),
+        std::min(picked->y1, picked->y2),
+        std::max(1, std::abs(picked->x2 - picked->x1)),
+        std::max(1, std::abs(picked->y2 - picked->y1))
+      );
+      box &= cv::Rect2d(0, 0, imsz.width, imsz.height);
+      if (box.area() <= 1) { ++frame_id; continue; }
+
+      // compute error → servo (horizontal only)
+      const int img_cx = imsz.width / 2;
+      const int bx_cx  = (picked->x1 + picked->x2) / 2;
+      const int dx     = bx_cx - img_cx;
+      const double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
+      const int desired = servoSetpointFromError(ax);
+      const int servo   = rateLimitAndClamp(desired);
+      publishState(static_cast<double>(servo));
+
+      // If tracking disabled, remain in DETECT
+      if (tracker_type_ == "none") { ++frame_id; continue; }
+
+      // Start tracker
+      tracker = make_tracker(tracker_type_);
+      if (tracker.empty()) {
+        RCLCPP_ERROR(this->get_logger(), "[px2] OpenCV tracker '%s' unavailable. Staying in DETECT.",
+                     tracker_type_.c_str());
+        ++frame_id; continue;
+      }
+
+      // init() on BGR8 for stability
+      try {
+        cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
+        tracker->init(frame_bgr, box);
+        track_box   = box;
+        lost_frames = 0;
+        mode        = Mode::TRACK;
+        RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo=%d°)",
+                    tracker_type_.c_str(), servo);
+      } catch (const cv::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "[px2] tracker->init threw: %s. Staying in DETECT.", e.what());
+        tracker.release();
+      }
+
+    } else { // TRACK mode
+      // TRACK uses BGR8
+      cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
+
+      bool ok = false;
+      try {
+        ok = tracker && tracker->update(frame_bgr, track_box);
+      } catch (const cv::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "[px2] tracker->update threw: %s", e.what());
+        ok = false;
+      }
+
+      if (!ok ||
+          track_box.area() <= 1 ||
+          track_box.x < 0 || track_box.y < 0 ||
+          track_box.x + track_box.width  > imsz.width ||
+          track_box.y + track_box.height > imsz.height) {
+        if (++lost_frames >= lost_max_frames_) {
+          RCLCPP_WARN(this->get_logger(), "[px2] TRACK→DETECT (lost %d frames)", lost_frames);
+          tracker.release();
+          mode = Mode::DETECT;
+        }
+        ++frame_id;
+        continue;
+      }
+
+      lost_frames = 0;
+
+      // control from tracked box
+      const int img_cx = imsz.width / 2;
+      const int bx_cx  = static_cast<int>(track_box.x + track_box.width * 0.5);
+      const int dx     = bx_cx - img_cx;
+      const double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
+      const int desired = servoSetpointFromError(ax);
+      const int servo   = rateLimitAndClamp(desired);
+      publishState(static_cast<double>(servo));
+
+      if (save_frames_) {
+        cv::Mat out = frame.clone();
+        cv::rectangle(out, track_box, {0,255,0}, 2);
+        cv::imwrite(pkg_path + "/data/frames/track_" + std::to_string(frame_id) + ".png", out);
+      }
+    }
+
+    ++frame_id;
+  }
+
+  RCLCPP_INFO(this->get_logger(), "[px2] pipeline finished.");
+}
+
+void OnnxInferenceNode::publishState(double deg)
+{
+  custom_msgs::msg::AbsResult m;
+  m.x_angle = std::clamp(deg, 0.0, 180.0);
+  RCLCPP_DEBUG(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
+  publisher_->publish(m);
+}
+
+}  // namespace onnx_inference
+
+int main(int argc, char * argv[])
+{
+  rclcpp::NodeOptions options;
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<onnx_inference::OnnxInferenceNode>(options);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
+  rclcpp::shutdown();
+  return 0;
+}
