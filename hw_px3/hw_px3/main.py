@@ -48,8 +48,7 @@ class AngleForwarder(Node):
         self.start_t     = self.last_send_t
 
     def _on_angle(self, msg: AbsResult):
-        base = int(round(msg.x_angle))
-        servo = base
+        servo = int(round(msg.x_angle))
         if servo < 0: servo = 0
         if servo > 180: servo = 180
 
