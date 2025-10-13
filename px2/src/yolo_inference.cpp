@@ -18,7 +18,7 @@ std::vector<std::string> TARGETS = {"clock"};//"cell phone"};
 YoloDetect::YoloDetect(const std::string& modelPath){
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     sessionOptions.SetIntraOpNumThreads(numthreads);
-    
+    sessionOptions.SetLogSeverityLevel(4);  // erase waring message
     session = new Ort::Session(env, modelPath.c_str(), sessionOptions);
 }
 
