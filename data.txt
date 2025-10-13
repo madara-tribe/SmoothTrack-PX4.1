@@ -1,0 +1,9 @@
+from camera to object : 40cm
+servo rotate direction with flip_dir = +1.0 : object is left side but servo rotate right side
+image Width: 640, image Height: 480
+box.x: 42 box.y: 121
+real object Width : 9 cm
+real object Height: 7 cm
+dx: -206 dy: -62.5 (dx= box_cx - img_cx,  box_cx = box.x + 0.5*box.width, img_cx = IMG_WIDTH  * 0.5)
+
+
