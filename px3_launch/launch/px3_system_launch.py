@@ -16,13 +16,11 @@ def generate_launch_description():
 
     # -------- px2 (camera + control) arguments --------
     arg_camera   = DeclareLaunchArgument('camera_path',     default_value='/dev/video2')
-    arg_hfov     = DeclareLaunchArgument('hfov_deg',        default_value='62.0')
-    arg_vfov     = DeclareLaunchArgument('vfov_deg',        default_value='48.0')
+    arg_fov     = DeclareLaunchArgument('fov',        default_value='70')
 
     # ABS control only
     arg_kp       = DeclareLaunchArgument('kp',              default_value='1.0')
     arg_maxstep  = DeclareLaunchArgument('max_step_deg',    default_value='8.0',  description='max deg per update')
-    arg_invert   = DeclareLaunchArgument('invert_servo',    default_value='false')
     arg_center   = DeclareLaunchArgument('center_on_start', default_value='false')  # px3 centers at boot
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
     arg_cls      = DeclareLaunchArgument('track_class',     default_value='-1')
@@ -62,12 +60,9 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[{
                 'device_path':     LaunchConfiguration('camera_path'),
-                'hfov_deg':        ParameterValue(LaunchConfiguration('hfov_deg'),        value_type=float),
-                'vfov_deg':        ParameterValue(LaunchConfiguration('vfov_deg'),        value_type=float),
-
+                'fov':        ParameterValue(LaunchConfiguration('fov'),        value_type=float),
                 'kp':              ParameterValue(LaunchConfiguration('kp'),              value_type=float),
                 'max_step_deg':    ParameterValue(LaunchConfiguration('max_step_deg'),    value_type=float),
-                'invert_servo':    ParameterValue(LaunchConfiguration('invert_servo'),    value_type=bool),
                 'center_on_start': ParameterValue(LaunchConfiguration('center_on_start'), value_type=bool),
 
                 'lost_max_frames': ParameterValue(LaunchConfiguration('lost_max_frames'), value_type=int),
@@ -84,8 +79,8 @@ def generate_launch_description():
         color,
         # args
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
-        arg_camera, arg_hfov, arg_vfov,
-        arg_kp, arg_maxstep, arg_invert, arg_center, arg_lost, arg_cls, arg_save,
+        arg_camera, arg_fov,
+        arg_kp, arg_maxstep, arg_center, arg_lost, arg_cls, arg_save,
         arg_tracker, arg_bgr8,
         arg_serial, arg_baud, arg_gap,
         # nodes

@@ -3,12 +3,14 @@
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
-
+#define IMG_WIDTH 640
+#define IMG_HEIGHT 480
 #include <optional>
 #include <algorithm>
 #include <vector>
 
-#include <opencv2/tracking.hpp>   // CSRT/KCF (opencv_contrib)
+#include <opencv2/tracking.hpp>      // for KCF, CSRT, MIL, MedianFlow
+#include <opencv2/core/ocl.hpp>
 #include <opencv2/imgproc.hpp>
 
 using namespace std::chrono_literals;
@@ -53,18 +55,28 @@ static inline cv::Mat to_bgr8(const cv::Mat& src, bool enforce_bgr8)
   return dst;
 }
 
-// Make tracker by type string
 static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
 {
   cv::Ptr<cv::Tracker> t;
   try {
-    if (type == "KCF")       t = cv::TrackerKCF::create();
-    else if (type == "CSRT") t = cv::TrackerCSRT::create();
-    else /* none / unknown */ t.release();
+    std::string up = type;
+    std::transform(up.begin(), up.end(), up.begin(), ::toupper);
+
+    if (up == "KCF")          t = cv::TrackerKCF::create();
+    else if (up == "CSRT")    t = cv::TrackerCSRT::create();
+    else if (up == "MIL")     t = cv::TrackerMIL::create();
+    else {
+      // optional: fallback to KCF
+      t = cv::TrackerKCF::create();
+    }
+  } catch (const cv::Exception& e) {
+    std::cerr << "Tracker creation failed (" << type << "): " << e.what() << std::endl;
+    t.release();
   } catch (...) {
+    std::cerr << "Tracker creation failed (" << type << "): unknown exception" << std::endl;
     t.release();
   }
-  return t; // may be empty if tracking module isn't present
+  return t;  // may be empty if not available in your build
 }
 
 OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
@@ -72,10 +84,8 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
 {
   // ----- Params -----
   this->declare_parameter<std::string>("device_path", "/dev/video2");
-  this->declare_parameter<double>("hfov_deg", 62.0);
-  this->declare_parameter<double>("vfov_deg", 48.0);
+  this->declare_parameter<double>("fov", 70.0);
   this->declare_parameter<double>("kp", 1.0);
-  this->declare_parameter<bool>("invert_servo", false);
   this->declare_parameter<int>("lost_max_frames", 15);
   this->declare_parameter<int>("track_class", -1);     // -1 => any
   this->declare_parameter<bool>("save_frames", false);
@@ -85,10 +95,8 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<bool>("enforce_bgr8", true);
 
   device_path       = this->get_parameter("device_path").as_string();
-  hfov_deg_         = this->get_parameter("hfov_deg").as_double();
-  vfov_deg_         = this->get_parameter("vfov_deg").as_double();
+  fov_         = this->get_parameter("fov").as_double();
   kp_               = this->get_parameter("kp").as_double();
-  invert_servo_     = this->get_parameter("invert_servo").as_bool();
   lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
   track_class_      = this->get_parameter("track_class").as_int();
   save_frames_      = this->get_parameter("save_frames").as_bool();
@@ -100,7 +108,7 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   // ----- Publisher for servo setpoints -----
   rclcpp::QoS qos(10);
   qos.reliable().durability_volatile(); // stream; don't latch servo commands
-  publisher_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
+  pub_abs_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
 
   // ----- px3_ready (latched) -----
   rclcpp::QoS ready_qos(1);
@@ -123,8 +131,8 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
     return;
   }
   cap_.set(cv::CAP_PROP_FPS, 30);
-  cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-  cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+  cap_.set(cv::CAP_PROP_FRAME_WIDTH, IMG_WIDTH);
+  cap_.set(cv::CAP_PROP_FRAME_HEIGHT, IMG_HEIGHT);
 
   // ---- Load YOLO once ----
   yolo_ = std::make_unique<YoloDetect>(pkg_path + std::string(ONNX_YOLO_PATH));
@@ -136,17 +144,21 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
 }
 
 std::pair<double, double> OnnxInferenceNode::computeCameraAngleFromBox(
-    const Result& result, const cv::Size& imageSize, double HFOV_deg, double VFOV_deg) {
-  const int box_cx = (result.x1 + result.x2) / 2;
-  const int box_cy = (result.y1 + result.y2) / 2;
-  const int img_cx = imageSize.width / 2;
-  const int img_cy = imageSize.height / 2;
-
+    const cv::Rect& box, double HFOV_deg, double VFOV_deg) {
+  const int box_cx = box.x + box.width  / 2;
+  const int box_cy = box.y + box.height / 2;
+  const int img_cx = IMG_WIDTH / 2;
+  const int img_cy = IMG_HEIGHT / 2;
+  std::cout << "imageH : " << img_cx << "imageW: "<< img_cy << "box.xx: " << box.x << ": box.y"<< box.y  << std::endl;
+  std::cout << "HFOV: " <<  HFOV_deg << "VFOV:" << VFOV_deg << "box h: " << box.height << "box.w" << box.width  << std::endl;
   const int dx = box_cx - img_cx;
   const int dy = box_cy - img_cy;
-
-  const double angle_x = (static_cast<double>(dx) / imageSize.width)  * HFOV_deg;
-  const double angle_y = (static_cast<double>(dy) / imageSize.height) * VFOV_deg;
+  std::cout << "dx :" << dy << "dy "<< dy  << std::endl;
+  double angle_x = (static_cast<double>(dx) / img_cx)  * HFOV_deg;
+  double angle_y = (static_cast<double>(dy) / img_cy) * VFOV_deg;
+  if (!std::isfinite(angle_x)) angle_x = 0.0;
+  if (!std::isfinite(angle_y)) angle_y = 0.0;
+  std::cout << "angle_x " << angle_x << "angle_y "<< angle_y  << std::endl;
   return {angle_x, angle_y};
 }
 
@@ -160,8 +172,8 @@ void OnnxInferenceNode::callbackInference()
 
   // Optional: ensure servo starts at 90° once
   if (center_on_start_) {
+    servo_deg_ = 90.0;
     publishState(90.0);
-    servo_deg_ = 90;
   }
 
   // Prepare tracker runtime
@@ -174,10 +186,14 @@ void OnnxInferenceNode::callbackInference()
 
   int frame_id = 0;
   cv::Mat frame;
-
+  
   while (rclcpp::ok() && cap_.read(frame)) {
     if (frame.empty()) continue;
     const cv::Size imsz = frame.size();
+     
+    auto [h_deg, v_deg] = computeFov(fov_, IMG_WIDTH, IMG_HEIGHT);
+    double hfov_deg = h_deg;
+    double vfov_deg = v_deg;
 
     if (mode == Mode::DETECT) {
       // YOLO until target appears
@@ -209,18 +225,15 @@ void OnnxInferenceNode::callbackInference()
         std::max(1, std::abs(picked->x2 - picked->x1)),
         std::max(1, std::abs(picked->y2 - picked->y1))
       );
-      box &= cv::Rect(0, 0, imsz.width, imsz.height);
+      box &= cv::Rect(0, 0, IMG_WIDTH, IMG_HEIGHT);
       if (box.area() <= 1) { ++frame_id; continue; }
 
       // compute error → servo (horizontal only)
-      const int img_cx = imsz.width / 2;
-      const int bx_cx  = (picked->x1 + picked->x2) / 2;
-      const int dx     = bx_cx - img_cx;
-      const double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
-      const int desired = servoSetpointFromError(ax);
-      const int servo   = rateLimitAndClamp(desired);
+      auto [angle_x, angle_y] = computeCameraAngleFromBox(box, hfov_deg, vfov_deg);
+      const int servo = servoSetpointFromError(angle_x);
+      RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f° angle_x is: %.2f", servo, angle_x);
       publishState(static_cast<double>(servo));
-
+    
       // If tracking disabled, remain in DETECT
       if (tracker_type_ == "none") { ++frame_id; continue; }
 
@@ -231,12 +244,12 @@ void OnnxInferenceNode::callbackInference()
                      tracker_type_.c_str());
         ++frame_id; continue;
       }
-
+    
       // init() on BGR8 for stability
       try {
         cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
         tracker->init(frame_bgr, box);
-        track_box   = box;
+        track_box   = cv::Rect2d(box);
         lost_frames = 0;
         mode        = Mode::TRACK;
         RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo=%d°)",
@@ -245,48 +258,21 @@ void OnnxInferenceNode::callbackInference()
         RCLCPP_ERROR(this->get_logger(), "[px2] tracker->init threw: %s. Staying in DETECT.", e.what());
         tracker.release();
       }
-
     } else { // TRACK mode
       // TRACK uses BGR8
+      cv::Rect2d cur = track_box;
       cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
-
-      bool ok = false;
-      try {
-        ok = tracker && tracker->update(frame_bgr, track_box);
-      } catch (const cv::Exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "[px2] tracker->update threw: %s", e.what());
-        ok = false;
+      bool ok = tracker && tracker->update(frame_bgr, track_box);
+      if (ok && cur.width > 1.0 && cur.height > 1.0) {
+        auto [angle_x, angle_y] = computeCameraAngleFromBox(track_box, hfov_deg, vfov_deg);
+        const int servo = servoSetpointFromError(angle_x);
+        RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f° angle_x is: %.2f", servo, angle_x);
+        publishState(static_cast<double>(servo));
       }
-
-      if (!ok ||
-          track_box.area() <= 1 ||
-          track_box.x < 0 || track_box.y < 0 ||
-          track_box.x + track_box.width  > imsz.width ||
-          track_box.y + track_box.height > imsz.height) {
-        if (++lost_frames >= lost_max_frames_) {
-          RCLCPP_WARN(this->get_logger(), "[px2] TRACK→DETECT (lost %d frames)", lost_frames);
-          tracker.release();
-          mode = Mode::DETECT;
-        }
-        ++frame_id;
-        continue;
-      }
-
-      lost_frames = 0;
-
-      // control from tracked box
-      const int img_cx = imsz.width / 2;
-      const int bx_cx  = static_cast<int>(track_box.x + track_box.width * 0.5);
-      const int dx     = bx_cx - img_cx;
-      const double ax  = (static_cast<double>(dx) / imsz.width) * hfov_deg_;
-      const int desired = servoSetpointFromError(ax);
-      const int servo   = rateLimitAndClamp(desired);
-      publishState(static_cast<double>(servo));
-
       if (save_frames_) {
         cv::Mat out = frame.clone();
         cv::rectangle(out, track_box, {0,255,0}, 2);
-        cv::imwrite(pkg_path + "/data/frames/track_" + std::to_string(frame_id) + ".png", out);
+        cv::imwrite(pkg_path + "/data/track_" + std::to_string(frame_id) + ".png", out);
       }
     }
 
@@ -299,9 +285,9 @@ void OnnxInferenceNode::callbackInference()
 void OnnxInferenceNode::publishState(double deg)
 {
   custom_msgs::msg::AbsResult m;
-  m.x_angle = std::clamp(deg, 0.0, 180.0);
-  RCLCPP_DEBUG(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
-  publisher_->publish(m);
+  m.x_angle = deg;
+  RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
+  pub_abs_->publish(m);
 }
 
 }  // namespace onnx_inference

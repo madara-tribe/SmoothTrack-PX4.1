@@ -49,17 +49,14 @@ class AngleForwarder(Node):
 
     def _on_angle(self, msg: AbsResult):
         servo = int(round(msg.x_angle))
-        if servo < 0: servo = 0
-        if servo > 180: servo = 180
-
         now = time.monotonic()
         if (now - self.last_send_t) < self.min_interval:
             return
-        if self.last_servo is not None and servo == self.last_servo:
-            # unchanged setpoint: skip to reduce serial traffic
-            return
+        if self.last_servo is not None:
+            if self.last_servo - 4 < servo < self.last_servo + 4:
+                return
 
-        try:
+        try: 
             self.ser.write(f"{servo}\n".encode('ascii'))
         except Exception as e:
             self.get_logger().error(f'px3: serial write failed: {e}')
@@ -67,13 +64,7 @@ class AngleForwarder(Node):
 
         self.last_send_t = now
         self.last_servo  = servo
-        self.sent_count += 1
-
-        # quieter progress log
-        if self.sent_count % 100 == 0:
-            dt = max(1e-6, now - self.start_t)
-            self.get_logger().info(f'px3: sent {self.sent_count} setpoints (~{self.sent_count/dt:.1f} Hz)')
-
+        
     def destroy_node(self):
         try:
             if hasattr(self, 'ser') and self.ser.is_open:

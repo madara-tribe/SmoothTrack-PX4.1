@@ -1,0 +1,305 @@
+[px2-2] [INFO] [1760331847.245262247] [px2]: [px2] Starting DETECT→TRACK pipeline.
+[px2-2] [INFO] [1760331847.245323578] [px2]: Publishing servo setpoint: 90.00°
+[px2-2] imageH : 320imageW: 240box.xx: 114: box.y230
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :111dy 111
+[px2-2] angle_x -7.31402angle_y 21.0793
+[px2-2] [INFO] [1760331848.301285526] [px2]: servo angle is: -7.31° angle_x is: -nan
+[px2-2] [INFO] [1760331848.301381189] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] [INFO] [1760331848.304990814] [px2]: [px2] DETECT→TRACK (tracker=KCF, servo=97°)
+[px2-2] imageH : 320imageW: 240box.xx: 114: box.y230
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :111dy 111
+[px2-2] angle_x -7.31402angle_y 21.0793
+[px2-2] [INFO] [1760331848.349641571] [px2]: servo angle is: -7.31° angle_x is: -nan
+[px2-2] [INFO] [1760331848.349702206] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 113: box.y229
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :110dy 110
+[px2-2] angle_x -7.49687angle_y 20.8894
+[px2-2] [INFO] [1760331848.424770023] [px2]: servo angle is: -7.50° angle_x is: -nan
+[px2-2] [INFO] [1760331848.424839321] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 114: box.y228
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :109dy 109
+[px2-2] angle_x -7.31402angle_y 20.6995
+[px2-2] [INFO] [1760331848.496519006] [px2]: servo angle is: -7.31° angle_x is: -nan
+[px2-2] [INFO] [1760331848.496575572] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 115: box.y229
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :110dy 110
+[px2-2] angle_x -7.13117angle_y 20.8894
+[px2-2] [INFO] [1760331848.572902329] [px2]: servo angle is: -7.13° angle_x is: -nan
+[px2-2] [INFO] [1760331848.572964843] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 112: box.y228
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :109dy 109
+[px2-2] angle_x -7.67972angle_y 20.6995
+[px2-2] [INFO] [1760331848.643667601] [px2]: servo angle is: -7.68° angle_x is: -nan
+[px2-2] [INFO] [1760331848.643760747] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 111: box.y231
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :112dy 112
+[px2-2] angle_x -7.86257angle_y 21.2692
+[px2-2] [INFO] [1760331848.719344104] [px2]: servo angle is: -7.86° angle_x is: -nan
+[px2-2] [INFO] [1760331848.719414352] [px2]: Publishing servo setpoint: 97.00°
+[px2-2] imageH : 320imageW: 240box.xx: 140: box.y232
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :113dy 113
+[px2-2] angle_x -2.55991angle_y 21.4591
+[px2-2] [INFO] [1760331848.791998922] [px2]: servo angle is: -2.56° angle_x is: -nan
+[px2-2] [INFO] [1760331848.792057959] [px2]: Publishing servo setpoint: 92.00°
+[px2-2] imageH : 320imageW: 240box.xx: 193: box.y229
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :110dy 110
+[px2-2] angle_x 7.13117angle_y 20.8894
+[px2-2] [INFO] [1760331848.869942954] [px2]: servo angle is: 7.13° angle_x is: -nan
+[px2-2] [INFO] [1760331848.870007519] [px2]: Publishing servo setpoint: 82.00°
+[px2-2] imageH : 320imageW: 240box.xx: 196: box.y230
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :111dy 111
+[px2-2] angle_x 7.67972angle_y 21.0793
+[px2-2] [INFO] [1760331848.940848999] [px2]: servo angle is: 7.68° angle_x is: -nan
+[px2-2] [INFO] [1760331848.940910765] [px2]: Publishing servo setpoint: 82.00°
+[px2-2] imageH : 320imageW: 240box.xx: 187: box.y229
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :110dy 110
+[px2-2] angle_x 6.03406angle_y 20.8894
+[px2-2] [INFO] [1760331849.017666717] [px2]: servo angle is: 6.03° angle_x is: -nan
+[px2-2] [INFO] [1760331849.017747755] [px2]: Publishing servo setpoint: 83.00°
+[px2-2] imageH : 320imageW: 240box.xx: 170: box.y226
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :107dy 107
+[px2-2] angle_x 2.92561angle_y 20.3197
+[px2-2] [INFO] [1760331849.089768998] [px2]: servo angle is: 2.93° angle_x is: -nan
+[px2-2] [INFO] [1760331849.089826304] [px2]: Publishing servo setpoint: 87.00°
+[px2-2] imageH : 320imageW: 240box.xx: 147: box.y225
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :106dy 106
+[px2-2] angle_x -1.27995angle_y 20.1298
+[px2-2] [INFO] [1760331849.167667304] [px2]: servo angle is: -1.28° angle_x is: -nan
+[px2-2] [INFO] [1760331849.167727647] [px2]: Publishing servo setpoint: 91.00°
+[px2-2] imageH : 320imageW: 240box.xx: 122: box.y224
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :105dy 105
+[px2-2] angle_x -5.85121angle_y 19.9399
+[px2-2] [INFO] [1760331849.240676417] [px2]: servo angle is: -5.85° angle_x is: -nan
+[px2-2] [INFO] [1760331849.240742309] [px2]: Publishing servo setpoint: 95.00°
+[px2-2] imageH : 320imageW: 240box.xx: 65: box.y231
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :112dy 112
+[px2-2] angle_x -16.2737angle_y 21.2692
+[px2-2] [INFO] [1760331849.311827856] [px2]: servo angle is: -16.27° angle_x is: -nan
+[px2-2] [INFO] [1760331849.311897196] [px2]: Publishing servo setpoint: 106.00°
+[px2-2] imageH : 320imageW: 240box.xx: 52: box.y232
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :113dy 113
+[px2-2] angle_x -18.6507angle_y 21.4591
+[px2-2] [INFO] [1760331849.383006606] [px2]: servo angle is: -18.65° angle_x is: -nan
+[px2-2] [INFO] [1760331849.383069439] [px2]: Publishing servo setpoint: 108.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y235
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w294
+[px2-2] dx :116dy 116
+[px2-2] angle_x -31.6331angle_y 22.0289
+[px2-2] [INFO] [1760331849.454261656] [px2]: servo angle is: -31.63° angle_x is: -nan
+[px2-2] [INFO] [1760331849.454324151] [px2]: Publishing servo setpoint: 121.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y236
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w249
+[px2-2] dx :117dy 117
+[px2-2] angle_x -35.8387angle_y 22.2188
+[px2-2] [INFO] [1760331849.524167781] [px2]: servo angle is: -35.84° angle_x is: -nan
+[px2-2] [INFO] [1760331849.524228113] [px2]: Publishing servo setpoint: 125.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y229
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w272
+[px2-2] dx :110dy 110
+[px2-2] angle_x -33.6445angle_y 20.8894
+[px2-2] [INFO] [1760331849.597328169] [px2]: servo angle is: -33.64° angle_x is: -nan
+[px2-2] [INFO] [1760331849.597395676] [px2]: Publishing servo setpoint: 123.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y228
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w267
+[px2-2] dx :109dy 109
+[px2-2] angle_x -34.193angle_y 20.6995
+[px2-2] [INFO] [1760331849.669369015] [px2]: servo angle is: -34.19° angle_x is: -nan
+[px2-2] [INFO] [1760331849.669436198] [px2]: Publishing servo setpoint: 124.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y223
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w324
+[px2-2] dx :104dy 104
+[px2-2] angle_x -28.8904angle_y 19.75
+[px2-2] [INFO] [1760331849.743918868] [px2]: servo angle is: -28.89° angle_x is: -nan
+[px2-2] [INFO] [1760331849.743984467] [px2]: Publishing servo setpoint: 118.00°
+[px2-2] imageH : 320imageW: 240box.xx: 10: box.y224
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :105dy 105
+[px2-2] angle_x -26.3305angle_y 19.9399
+[px2-2] [INFO] [1760331849.813821193] [px2]: servo angle is: -26.33° angle_x is: -nan
+[px2-2] [INFO] [1760331849.813879439] [px2]: Publishing servo setpoint: 116.00°
+[px2-2] imageH : 320imageW: 240box.xx: 69: box.y199
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :80dy 80
+[px2-2] angle_x -15.5423angle_y 15.1923
+[px2-2] [INFO] [1760331850.731263923] [px2]: servo angle is: -15.54° angle_x is: -nan
+[px2-2] [INFO] [1760331850.731338877] [px2]: Publishing servo setpoint: 105.00°
+[px2-2] imageH : 320imageW: 240box.xx: 64: box.y198
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :79dy 79
+[px2-2] angle_x -16.4565angle_y 15.0024
+[px2-2] [INFO] [1760331850.809534868] [px2]: servo angle is: -16.46° angle_x is: -nan
+[px2-2] [INFO] [1760331850.809590265] [px2]: Publishing servo setpoint: 106.00°
+[px2-2] imageH : 320imageW: 240box.xx: 43: box.y199
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :80dy 80
+[px2-2] angle_x -20.2964angle_y 15.1923
+[px2-2] [INFO] [1760331850.884141123] [px2]: servo angle is: -20.30° angle_x is: -nan
+[px2-2] [INFO] [1760331850.884207872] [px2]: Publishing servo setpoint: 110.00°
+[px2-2] imageH : 320imageW: 240box.xx: 34: box.y198
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :79dy 79
+[px2-2] angle_x -21.9421angle_y 15.0024
+[px2-2] [INFO] [1760331850.955326771] [px2]: servo angle is: -21.94° angle_x is: -nan
+[px2-2] [INFO] [1760331850.955387112] [px2]: Publishing servo setpoint: 111.00°
+[px2-2] imageH : 320imageW: 240box.xx: 15: box.y197
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w333
+[px2-2] dx :78dy 78
+[px2-2] angle_x -25.4162angle_y 14.8125
+[px2-2] [INFO] [1760331851.040669924] [px2]: servo angle is: -25.42° angle_x is: -nan
+[px2-2] [INFO] [1760331851.040742230] [px2]: Publishing servo setpoint: 115.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y196
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w329
+[px2-2] dx :77dy 77
+[px2-2] angle_x -28.5247angle_y 14.6226
+[px2-2] [INFO] [1760331851.111871714] [px2]: servo angle is: -28.52° angle_x is: -nan
+[px2-2] [INFO] [1760331851.111934698] [px2]: Publishing servo setpoint: 118.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y193
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w304
+[px2-2] dx :74dy 74
+[px2-2] angle_x -30.7189angle_y 14.0529
+[px2-2] [INFO] [1760331851.183824243] [px2]: servo angle is: -30.72° angle_x is: -nan
+[px2-2] [INFO] [1760331851.183893562] [px2]: Publishing servo setpoint: 120.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y184
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w243
+[px2-2] dx :65dy 65
+[px2-2] angle_x -36.3872angle_y 12.3438
+[px2-2] [INFO] [1760331851.615037284] [px2]: servo angle is: -36.39° angle_x is: -nan
+[px2-2] [INFO] [1760331851.615105907] [px2]: Publishing servo setpoint: 126.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y183
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w234
+[px2-2] dx :64dy 64
+[px2-2] angle_x -37.1186angle_y 12.1539
+[px2-2] [INFO] [1760331851.692369097] [px2]: servo angle is: -37.12° angle_x is: -nan
+[px2-2] [INFO] [1760331851.692440469] [px2]: Publishing servo setpoint: 127.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y184
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w231
+[px2-2] dx :65dy 65
+[px2-2] angle_x -37.4843angle_y 12.3438
+[px2-2] [INFO] [1760331851.763559801] [px2]: servo angle is: -37.48° angle_x is: -nan
+[px2-2] [INFO] [1760331851.763620998] [px2]: Publishing servo setpoint: 127.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y185
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w224
+[px2-2] dx :66dy 66
+[px2-2] angle_x -38.0329angle_y 12.5337
+[px2-2] [INFO] [1760331851.837448202] [px2]: servo angle is: -38.03° angle_x is: -nan
+[px2-2] [INFO] [1760331851.837514361] [px2]: Publishing servo setpoint: 128.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y186
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w217
+[px2-2] dx :67dy 67
+[px2-2] angle_x -38.7643angle_y 12.7236
+[px2-2] [INFO] [1760331851.910244696] [px2]: servo angle is: -38.76° angle_x is: -nan
+[px2-2] [INFO] [1760331851.910304753] [px2]: Publishing servo setpoint: 128.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y187
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w208
+[px2-2] dx :68dy 68
+[px2-2] angle_x -39.4957angle_y 12.9135
+[px2-2] [INFO] [1760331851.983213238] [px2]: servo angle is: -39.50° angle_x is: -nan
+[px2-2] [INFO] [1760331851.983281834] [px2]: Publishing servo setpoint: 129.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y186
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w201
+[px2-2] dx :67dy 67
+[px2-2] angle_x -40.2271angle_y 12.7236
+[px2-2] [INFO] [1760331852.077285839] [px2]: servo angle is: -40.23° angle_x is: -nan
+[px2-2] [INFO] [1760331852.077357512] [px2]: Publishing servo setpoint: 130.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y173
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w264
+[px2-2] dx :54dy 54
+[px2-2] angle_x -34.3759angle_y 10.2548
+[px2-2] [INFO] [1760331852.188582222] [px2]: servo angle is: -34.38° angle_x is: -nan
+[px2-2] [INFO] [1760331852.188651497] [px2]: Publishing servo setpoint: 124.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y172
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w265
+[px2-2] dx :53dy 53
+[px2-2] angle_x -34.3759angle_y 10.0649
+[px2-2] [INFO] [1760331852.280835140] [px2]: servo angle is: -34.38° angle_x is: -nan
+[px2-2] [INFO] [1760331852.280906567] [px2]: Publishing servo setpoint: 124.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y173
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w256
+[px2-2] dx :54dy 54
+[px2-2] angle_x -35.1073angle_y 10.2548
+[px2-2] [INFO] [1760331852.362918529] [px2]: servo angle is: -35.11° angle_x is: -nan
+[px2-2] [INFO] [1760331852.362980815] [px2]: Publishing servo setpoint: 125.00°
+[px2-2] [INFO] [1760331852.458773810] [px2]: servo angle is: -36.39° angle_x is: -nan
+[px2-2] [INFO] [1760331852.458833928] [px2]: Publishing servo setpoint: 126.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y172
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w243
+[px2-2] dx :53dy 53
+[px2-2] angle_x -36.3872angle_y 10.0649
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y173
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w226
+[px2-2] dx :54dy 54
+[px2-2] angle_x -37.85angle_y 10.2548
+[px2-2] [INFO] [1760331852.543643065] [px2]: servo angle is: -37.85° angle_x is: -nan
+[px2-2] [INFO] [1760331852.543699958] [px2]: Publishing servo setpoint: 127.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y166
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w239
+[px2-2] dx :47dy 47
+[px2-2] angle_x -36.7529angle_y 8.92548
+[px2-2] [INFO] [1760331852.644399247] [px2]: servo angle is: -36.75° angle_x is: -nan
+[px2-2] [INFO] [1760331852.644467531] [px2]: Publishing servo setpoint: 126.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y167
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w232
+[px2-2] dx :48dy 48
+[px2-2] angle_x -37.3015angle_y 9.11539
+[px2-2] [INFO] [1760331852.728077888] [px2]: servo angle is: -37.30° angle_x is: -nan
+[px2-2] [INFO] [1760331852.728140688] [px2]: Publishing servo setpoint: 127.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y174
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w169
+[px2-2] dx :55dy 55
+[px2-2] angle_x -43.1527angle_y 10.4447
+[px2-2] [INFO] [1760331852.818023628] [px2]: servo angle is: -43.15° angle_x is: -nan
+[px2-2] [INFO] [1760331852.818094342] [px2]: Publishing servo setpoint: 133.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y179
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w152
+[px2-2] dx :60dy 60
+[px2-2] angle_x -44.6155angle_y 11.3942
+[px2-2] [INFO] [1760331852.911632436] [px2]: servo angle is: -44.62° angle_x is: -nan
+[px2-2] [INFO] [1760331852.911796658] [px2]: Publishing servo setpoint: 134.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y178
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w145
+[px2-2] dx :59dy 59
+[px2-2] angle_x -45.3469angle_y 11.2043
+[px2-2] [INFO] [1760331853.001837901] [px2]: servo angle is: -45.35° angle_x is: -nan
+[px2-2] [INFO] [1760331853.001909561] [px2]: Publishing servo setpoint: 135.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y175
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w136
+[px2-2] dx :56dy 56
+[px2-2] angle_x -46.0783angle_y 10.6346
+[px2-2] [INFO] [1760331853.103377788] [px2]: servo angle is: -46.08° angle_x is: -nan
+[px2-2] [INFO] [1760331853.103435843] [px2]: Publishing servo setpoint: 136.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y164
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w129
+[px2-2] dx :45dy 45
+[px2-2] angle_x -46.8097angle_y 8.54568
+[px2-2] [INFO] [1760331853.193430375] [px2]: servo angle is: -46.81° angle_x is: -nan
+[px2-2] [INFO] [1760331853.193490269] [px2]: Publishing servo setpoint: 136.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y155
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w124
+[px2-2] dx :36dy 36
+[px2-2] angle_x -47.1754angle_y 6.83654
+[px2-2] [INFO] [1760331853.283838189] [px2]: servo angle is: -47.18° angle_x is: -nan
+[px2-2] [INFO] [1760331853.283910616] [px2]: Publishing servo setpoint: 137.00°
+[px2-2] imageH : 320imageW: 240box.xx: 0: box.y156
+[px2-2] HFOV: 58.5121VFOV:45.5769box h: 243box.w127
+[px2-2] dx :37dy 37
+[px2-2] angle_x -46.9926angle_y 7.02644
+[px2-2] [INFO] [1760331853.366991068] [px2]: servo angle is: -46.99° angle_x is: -nan
+[px2-2] [INFO] [1760331853.367049739] [px2]: Publishing servo setpoint: 136.00°
+^Z
+[2]+  Stopped  
