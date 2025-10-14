@@ -1,3 +1,5 @@
+HFOV = 53.13°, VFOV = 40.78°
+
 from camera to object : 40cm
 servo rotate direction with flip_dir = +1.0 : object is left side but servo rotate right side
 image Width: 640, image Height: 480
