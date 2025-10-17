@@ -3,8 +3,8 @@
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
-#define IMG_WIDTH 640
-#define IMG_HEIGHT 480
+#define IMG_WIDTH 960
+#define IMG_HEIGHT 540
 #include <optional>
 #include <algorithm>
 #include <vector>

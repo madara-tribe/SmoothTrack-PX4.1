@@ -1,4 +1,6 @@
 #include "yolo_inference.h"
+#define ACCURACY 0.25
+#define WARNING false
 
 std::vector<std::string> classNames = {
     "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
@@ -18,7 +20,9 @@ std::string TARGET = "clock";
 YoloDetect::YoloDetect(const std::string& modelPath){
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     sessionOptions.SetIntraOpNumThreads(numthreads);
-    sessionOptions.SetLogSeverityLevel(4);  // erase waring message
+    if (!WARNING){
+        sessionOptions.SetLogSeverityLevel(4);  // erase waring message
+    }
     session = new Ort::Session(env, modelPath.c_str(), sessionOptions);
 }
 
@@ -112,7 +116,7 @@ cv::Mat YoloDetect::preprocess(cv::Mat& image, int model_input_width, int model_
 cv::Mat YoloDetect::drawBoundingBox(cv::Mat& image, std::vector<Result>& resultVector){
     for( auto result : resultVector ) {
 
-        if( result.accuracy > 0.25 ) { // Threshold, can be made function parameter
+        if( result.accuracy > ACCURACY ) { // Threshold, can be made function parameter
 
             cv::rectangle(image, cv::Point(result.x1, result.y1), cv::Point(result.x2, result.y2), cv::Scalar(0, 255, 0), 2);
 
