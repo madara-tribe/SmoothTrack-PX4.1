@@ -87,7 +87,6 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("fov", 70.0);
   this->declare_parameter<double>("kp", 1.0);
   this->declare_parameter<int>("lost_max_frames", 15);
-  this->declare_parameter<int>("track_class", -1);     // -1 => any
   this->declare_parameter<bool>("save_frames", false);
   this->declare_parameter<double>("max_step_deg", 8.0);
   this->declare_parameter<bool>("center_on_start", false); // px3 centers
@@ -98,7 +97,6 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   fov_         = this->get_parameter("fov").as_double();
   kp_               = this->get_parameter("kp").as_double();
   lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
-  track_class_      = this->get_parameter("track_class").as_int();
   save_frames_      = this->get_parameter("save_frames").as_bool();
   max_step_deg_     = this->get_parameter("max_step_deg").as_double();
   center_on_start_  = this->get_parameter("center_on_start").as_bool();
@@ -210,7 +208,6 @@ void OnnxInferenceNode::callbackInference()
       std::optional<Result> picked;
       int best_area = -1;
       for (const auto& r : results) {
-      	if (track_class_ >= 0 && r.obj_id != track_class_) continue;
         int w = std::abs(r.x2 - r.x1);
         int h = std::abs(r.y2 - r.y1);
         int area = w * h;
@@ -268,17 +265,23 @@ void OnnxInferenceNode::callbackInference()
         const int servo = servoSetpointFromError(angle_x);
         RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f° angle_x is: %.2f", servo, angle_x);
         publishState(static_cast<double>(servo));
-      }
-      if (save_frames_) {
-        cv::Mat out = frame.clone();
-        cv::rectangle(out, track_box, {0,255,0}, 2);
-        cv::imwrite(pkg_path + "/data/track_" + std::to_string(frame_id) + ".png", out);
+        if (save_frames_) {
+          cv::Mat out = frame.clone();
+          cv::rectangle(out, track_box, {0,255,0}, 2);
+          cv::imwrite(pkg_path + "/data/track_" + std::to_string(frame_id) + ".png", out);
+        }
+        lost_frames = 0;
+      } else {
+        if (++lost_frames >= lost_max_frames_) {
+          RCLCPP_WARN(this->get_logger(), "[px2] TRACK lost → DETECT after %d frames.", lost_frames);
+          tracker.release();
+          lost_frames = 0;
+          mode = Mode::DETECT;
+        }
       }
     }
-
     ++frame_id;
   }
-
   RCLCPP_INFO(this->get_logger(), "[px2] pipeline finished.");
 }
 

@@ -13,7 +13,7 @@ std::vector<std::string> classNames = {
     "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 };
 
-std::vector<std::string> TARGETS = {"clock"};//"cell phone"};
+std::string TARGET = "clock";
 
 YoloDetect::YoloDetect(const std::string& modelPath){
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
@@ -31,67 +31,37 @@ std::vector<Result> YoloDetect::postprocess(cv::Size originalImageSize, std::vec
 
     std::vector<Result> resultVector;
 
-    std::vector<std::pair<cv::Rect, Result>> detected_boxes;
-
     for (int i = 0; i < outputShape[0]; i++) {
-        // float confidence = output[i * outputShape[1] + 0];
-        float x1 = output[i * outputShape[1] + 1];
-        float y1 = output[i * outputShape[1] + 2];
-        float x2 = output[i * outputShape[1] + 3];
-        float y2 = output[i * outputShape[1] + 4];
-        int classPrediction = output[i * outputShape[1] + 5];
-        float accuracy = output[i * outputShape[1] + 6];
 
-        if (std::find(TARGETS.begin(), TARGETS.end(), classNames.at(classPrediction)) != TARGETS.end()) {
-            x1 = ((x1 - pad_size_x) / model_width_after_padding) * originalImageSize.width;
-            x2 = ((x2 - pad_size_x) / model_width_after_padding) * originalImageSize.width;
-            y1 = ((y1 - pad_size_y) / model_height_after_padding) * originalImageSize.height;
-            y2 = ((y2 - pad_size_y) / model_height_after_padding) * originalImageSize.height;
+        float confidence        = output[i * outputShape[1] + 0];
+        float x1                = output[i * outputShape[1] + 1];
+        float y1                = output[i * outputShape[1] + 2];
+        float x2                = output[i * outputShape[1] + 3];
+        float y2                = output[i * outputShape[1] + 4];
+        int classPrediction     = output[i * outputShape[1] + 5];
+        float accuracy          = output[i * outputShape[1] + 6];
 
-            cv::Rect clipped = clipBox(x1, y1, x2, y2, originalImageSize.width, originalImageSize.height);
-            std::ostringstream labelStream;
-            labelStream << classNames.at(classPrediction) << " " << std::round(accuracy * 100) / 100;
-            std::string label = labelStream.str();
+        (void) confidence;
+        if (classNames.at(classPrediction) == TARGET) {
+        //if (true) {
+           std::cout << "Target found!" << std::endl;
+        
+           // Coords should be scaled to the original image. The coords from the model are relative to the model's input height and width.
+           x1 = ((x1- pad_size_x)  / model_width_after_padding) * originalImageSize.width ;
+           x2 = ((x2- pad_size_x) / model_width_after_padding) * originalImageSize.width ;
+           y1 = ((y1 - pad_size_y) / model_height_after_padding) * originalImageSize.height ;
+           y2 = ((y2 - pad_size_y) / model_height_after_padding) * originalImageSize.height ;
+           cv::Rect clipped = clipBox(x1, y1, x2, y2, originalImageSize.width, originalImageSize.height);
+	   std::cout << "Class Name: " << classNames.at(classPrediction) << std::endl;
+           std::cout << "Coords: Top Left (" << clipped.x << ", " << clipped.x + clipped.width << "), Bottom Right (" << clipped.y << ", " << clipped.y + clipped.height << ")" << std::endl;
+           std::cout << "Accuracy: " << accuracy << std::endl;
 
-            Result result(clipped.x, clipped.x + clipped.width, clipped.y, clipped.y + clipped.height, classPrediction, accuracy);
-            detected_boxes.push_back(std::make_pair(clipped, result));
-        }
-    }
+           Result result(clipped.x, clipped.x + clipped.width, clipped.y, clipped.y + clipped.height, classPrediction, accuracy);
 
-    // Apply tracking mode
-    if (tracking_mode == SINGLE) {
-        if (!detected_boxes.empty()) {
-            auto best = std::max_element(detected_boxes.begin(), detected_boxes.end(),
-                [](const auto& a, const auto& b) {
-                    return a.second.accuracy < b.second.accuracy;
-                });
-            resultVector.push_back(best->second);
-        }
-    } else if (tracking_mode == GROUP) {
-        if (detected_boxes.size() >= 2) {
-            // add individual boxes
-            for (auto& pair : detected_boxes) {
-                resultVector.push_back(pair.second);
-            }
+           resultVector.push_back( result );
 
-            // calculate group box
-            std::vector<int> x1s, y1s, x2s, y2s;
-            for (const auto& [rect, _] : detected_boxes) {
-                x1s.push_back(rect.x);
-                y1s.push_back(rect.y);
-                x2s.push_back(rect.x + rect.width);
-                y2s.push_back(rect.y + rect.height);
-            }
-
-            int gx1 = *std::min_element(x1s.begin(), x1s.end());
-            int gy1 = *std::min_element(y1s.begin(), y1s.end());
-            int gx2 = *std::max_element(x2s.begin(), x2s.end());
-            int gy2 = *std::max_element(y2s.begin(), y2s.end());
-
-            cv::Rect group = clipBox(gx1, gy1, gx2, gy2, originalImageSize.width, originalImageSize.height);
-            Result group_result(group.x, group.x + group.width, group.y, group.y + group.height, -1, 1.0); // obj_id -1 = group
-            resultVector.push_back(group_result);
-        }
+           std::cout << std::endl;
+	}
     }
 
     return resultVector;
@@ -141,18 +111,18 @@ cv::Mat YoloDetect::preprocess(cv::Mat& image, int model_input_width, int model_
 
 cv::Mat YoloDetect::drawBoundingBox(cv::Mat& image, std::vector<Result>& resultVector){
     for( auto result : resultVector ) {
-        if (result.obj_id == -1) {
-            // group box
-            cv::rectangle(image, cv::Point(result.x1, result.y1), cv::Point(result.x2, result.y2), cv::Scalar(255, 255, 0), 2);
-            cv::putText(image, "Group", cv::Point(result.x1, std::max(0, result.y1 - 10)),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 2);
-        } else if (result.accuracy > 0.6) {
-            // normal box
+
+        if( result.accuracy > 0.25 ) { // Threshold, can be made function parameter
+
             cv::rectangle(image, cv::Point(result.x1, result.y1), cv::Point(result.x2, result.y2), cv::Scalar(0, 255, 0), 2);
-            cv::putText(image, classNames.at(result.obj_id), cv::Point(result.x1, result.y1 - 3),
-                        cv::FONT_ITALIC, 0.8, cv::Scalar(255, 255, 255), 2);
-            cv::putText(image, std::to_string(result.accuracy), cv::Point(result.x1, result.y1 + 30),
-                        cv::FONT_ITALIC, 0.8, cv::Scalar(255, 255, 0), 2);
+
+            cv::putText(image, classNames.at( result.obj_id ),
+                        cv::Point(result.x1, result.y1 - 3), cv::FONT_ITALIC,
+                        0.8, cv::Scalar(255, 255, 255), 2);
+
+            cv::putText(image, std::to_string(result.accuracy),
+                        cv::Point(result.x1, result.y1+30), cv::FONT_ITALIC,
+                        0.8, cv::Scalar(255, 255, 0), 2);
         }
     }
     return image;
@@ -165,14 +135,6 @@ cv::Rect YoloDetect::clipBox(float x1, float y1, float x2, float y2, int imageWi
     int x2_clipped = std::max(0, std::min(static_cast<int>(x2), imageWidth - 1));
     int y2_clipped = std::max(0, std::min(static_cast<int>(y2), imageHeight - 1));
     return cv::Rect(cv::Point(x1_clipped, y1_clipped), cv::Point(x2_clipped, y2_clipped));
-}
-
-void YoloDetect::setTrackingMode(TrackingMode mode) {
-    tracking_mode = mode;
-}
-
-TrackingMode YoloDetect::getTrackingMode() const {
-    return tracking_mode;
 }
 
 std::vector<Ort::Value> YoloDetect::RunInference(cv::Mat& inputImage){
@@ -198,3 +160,4 @@ std::vector<Ort::Value> YoloDetect::RunInference(cv::Mat& inputImage){
                                                         num_output_nodes);
     return outputTensors;
 }
+

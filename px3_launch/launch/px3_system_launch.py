@@ -23,7 +23,6 @@ def generate_launch_description():
     arg_maxstep  = DeclareLaunchArgument('max_step_deg',    default_value='8.0',  description='max deg per update')
     arg_center   = DeclareLaunchArgument('center_on_start', default_value='false')  # px3 centers at boot
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
-    arg_cls      = DeclareLaunchArgument('track_class',     default_value='-1')
     arg_save     = DeclareLaunchArgument('save_frames',     default_value='false')
 
     # Tracker controls
@@ -66,7 +65,6 @@ def generate_launch_description():
                 'center_on_start': ParameterValue(LaunchConfiguration('center_on_start'), value_type=bool),
 
                 'lost_max_frames': ParameterValue(LaunchConfiguration('lost_max_frames'), value_type=int),
-                'track_class':     ParameterValue(LaunchConfiguration('track_class'),     value_type=int),
                 'save_frames':     ParameterValue(LaunchConfiguration('save_frames'),     value_type=bool),
 
                 'tracker_type':    LaunchConfiguration('tracker_type'),  # KCF | CSRT | none
@@ -80,7 +78,7 @@ def generate_launch_description():
         # args
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
         arg_camera, arg_fov,
-        arg_kp, arg_maxstep, arg_center, arg_lost, arg_cls, arg_save,
+        arg_kp, arg_maxstep, arg_center, arg_lost, arg_save,
         arg_tracker, arg_bgr8,
         arg_serial, arg_baud, arg_gap,
         # nodes

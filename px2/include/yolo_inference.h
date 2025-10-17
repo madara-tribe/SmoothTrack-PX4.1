@@ -40,8 +40,6 @@ public:
     std::vector<Result> postprocess(cv::Size originalImageSize, std::vector<Ort::Value>& outputTensors);
     std::vector<Ort::Value> RunInference(cv::Mat& inputImage);
     cv::Rect clipBox(float x1, float y1, float x2, float y2, int imageWidth, int imageHeight);
-    void setTrackingMode(TrackingMode mode);
-    TrackingMode getTrackingMode() const;
 private:
     Ort::SessionOptions sessionOptions;
     Ort::Env env;
