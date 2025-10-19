@@ -228,7 +228,54 @@ void OnnxInferenceNode::callbackInference()
       servo_deg_ = computeServoAngleFromBox(box);
       RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f°", servo_deg_);
       publishState(servo_deg_);
-      
+
+      // If tracking disabled, remain in DETECT
+      if (tracker_type_ == "none") { ++frame_id; continue; }
+
+      // Start tracker
+      tracker = make_tracker(tracker_type_);
+      if (tracker.empty()) {
+        RCLCPP_ERROR(this->get_logger(), "[px2] OpenCV tracker '%s' unavailable. Staying in DETECT.",
+                     tracker_type_.c_str());
+        ++frame_id; continue;
+      }
+    
+      // init() on BGR8 for stability
+      try {
+        cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
+        tracker->init(frame_bgr, box);
+        track_box   = cv::Rect2d(box);
+        lost_frames = 0;
+        mode        = Mode::TRACK;
+        RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo_deg_=%d°)",
+                    tracker_type_.c_str(), servo_deg_);
+      } catch (const cv::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "[px2] tracker->init threw: %s. Staying in DETECT.", e.what());
+        tracker.release();
+      }
+    } else { // TRACK mode
+      // TRACK uses BGR8
+      cv::Rect2d cur = track_box;
+      cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
+      bool ok = tracker && tracker->update(frame_bgr, track_box);
+      if (ok && cur.width > 1.0 && cur.height > 1.0) {
+        servo_deg_ = computeServoAngleFromBox(track_box);
+        RCLCPP_INFO(this->get_logger(), "servo_deg_ is: %.2f°", servo_deg_);
+        publishState(servo_deg_);
+        if (save_frames_) {
+          cv::Mat out = frame.clone();
+          cv::rectangle(out, track_box, {0,255,0}, 2);
+          cv::imwrite(pkg_path + "/data/track_" + std::to_string(frame_id) + ".png", out);
+        }
+        lost_frames = 0;
+      } else {
+        if (++lost_frames >= lost_max_frames_) {
+          RCLCPP_WARN(this->get_logger(), "[px2] TRACK lost → DETECT after %d frames.", lost_frames);
+          tracker.release();
+          lost_frames = 0;
+          mode = Mode::DETECT;
+        }
+      }
     } 
     ++frame_id;
   }

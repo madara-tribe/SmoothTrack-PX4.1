@@ -16,11 +16,10 @@ def generate_launch_description():
 
     # -------- px2 (camera + control) arguments --------
     arg_camera   = DeclareLaunchArgument('camera_path',     default_value='/dev/video2')
-    arg_fov     = DeclareLaunchArgument('fov',        default_value='70')
 
     # ABS control only
-    arg_kp       = DeclareLaunchArgument('kp',              default_value='1.0')
-    arg_maxstep  = DeclareLaunchArgument('max_step_deg',    default_value='8.0',  description='max deg per update')
+    arg_min_angle       = DeclareLaunchArgument('min_angle',  default_value='0.0')
+    arg_max_angle  = DeclareLaunchArgument('max_angle',    default_value='180.0',  description='max deg')
     arg_center   = DeclareLaunchArgument('center_on_start', default_value='false')  # px3 centers at boot
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
     arg_save     = DeclareLaunchArgument('save_frames',     default_value='false')
@@ -32,7 +31,7 @@ def generate_launch_description():
     # -------- px3 (serial) arguments --------
     arg_serial   = DeclareLaunchArgument('serial_port',     default_value='/dev/ttyACM0')
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
-    arg_gap      = DeclareLaunchArgument('min_interval_s',  default_value='0.10')
+    arg_invert   = DeclareLaunchArgument('invert_angle',    default_value='true')
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
     px3_node = Node(
@@ -43,8 +42,8 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[{
             'serial_port':     LaunchConfiguration('serial_port'),
-            'baud':            ParameterValue(LaunchConfiguration('baud'),            value_type=int),
-            'min_interval_s':  ParameterValue(LaunchConfiguration('min_interval_s'),  value_type=float),
+            'baud':            ParameterValue(LaunchConfiguration('baud'), value_type=int),
+            'invert_angle':    ParameterValue(LaunchConfiguration('invert_angle'), value_type=bool),
         }]
     )
 
@@ -59,9 +58,8 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[{
                 'device_path':     LaunchConfiguration('camera_path'),
-                'fov':        ParameterValue(LaunchConfiguration('fov'),        value_type=float),
-                'kp':              ParameterValue(LaunchConfiguration('kp'),              value_type=float),
-                'max_step_deg':    ParameterValue(LaunchConfiguration('max_step_deg'),    value_type=float),
+                'min_angle':              ParameterValue(LaunchConfiguration('min_angle'),              value_type=float),
+                'max_angle':    ParameterValue(LaunchConfiguration('max_angle'),    value_type=float),
                 'center_on_start': ParameterValue(LaunchConfiguration('center_on_start'), value_type=bool),
 
                 'lost_max_frames': ParameterValue(LaunchConfiguration('lost_max_frames'), value_type=int),
@@ -77,10 +75,10 @@ def generate_launch_description():
         color,
         # args
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
-        arg_camera, arg_fov,
-        arg_kp, arg_maxstep, arg_center, arg_lost, arg_save,
+        arg_camera, arg_min_angle, arg_max_angle,
+        arg_center, arg_lost, arg_save,
         arg_tracker, arg_bgr8,
-        arg_serial, arg_baud, arg_gap,
+        arg_serial, arg_baud, arg_invert,
         # nodes
         px3_node, px2_node
     ])

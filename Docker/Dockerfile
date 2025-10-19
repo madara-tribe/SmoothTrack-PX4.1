@@ -117,13 +117,14 @@ RUN sudo apt-get update -q && \
     sudo apt-get upgrade -yq && \
     sudo apt-get install -yq python3-dev python3-pip
 RUN pip3 install --upgrade pip
-RUN pip3 install Pyserial
+RUN pip3 install Pyserial telemetrix pandas
 
 RUN sudo apt-get update && sudo apt-get install -y \
     udev \
     v4l-utils \
     libopencv-dev \
+    psmisc \
     && sudo rm -rf /var/lib/apt/lists/*
-RUN pip3 install pandas
+#RUN sudo apt update && sudo apt-get install psmisc
 WORKDIR /ros2_ws
 CMD ["/bin/bash"]

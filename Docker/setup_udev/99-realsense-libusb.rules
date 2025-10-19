@@ -1,7 +1,1 @@
-SUBSYSTEM=="video4linux", \
-ATTRS{idVendor}=="04f2", \
-ATTRS{idProduct}=="b805", \
-SYMLINK+="usb_cam", \
-MODE="0666", \
-GROUP="dialout"
-
+KERNEL=="video*", ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="4321", SYMLINK+="video-cam", GROUP="video", MODE="0666"
