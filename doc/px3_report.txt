@@ -1,0 +1,43 @@
+What each arg does in hw_px3
+
+1) max_slew_deg_per_s — “slew limit”
+
+What it is: The maximum rate the commanded servo angle is allowed to change, in degrees per second.
+Why it matters: Inference can bounce frame‑to‑frame; a slew limit prevents sudden jumps (jerk), reduces overshoot, and protects the mechanism.
+How it works: Each cycle we compute how much the angle may change based on elapsed time dt, and cap the step to ±max_slew_deg_per_s * dt.
+Good starting values: 180.0 to 220.0 for hobby servos. Increase if motion feels too sluggish.
+
+2) deadband_deg — “deadband”
+
+What it is: A tiny “ignore zone” around the last command, in degrees.
+Why it matters: Filters out tiny fluctuations so the servo doesn’t chatter or buzz.
+How it works: If the change from the last command is smaller than deadband_deg, the node does not write a new servo command.
+Good starting values: 0.6–1.0 degrees (tune based on your servo resolution and noise).
+
+3) min_deg / max_deg — “clamp”
+
+What it is: Safety limits for the servo’s mechanical range.
+Why it matters: Prevents binding/hard‑stops that can strip gears or cause current spikes.
+How it works: Every target (and the final shaped command) is clamped into [min_deg, max_deg].
+Good starting values: min_deg=5.0, max_deg=175.0 (adjust to your horn linkage).
+
+4) center_deg (and alias center_arg) — “center_arg”
+
+What it is: The angle used to actively center the servo at startup, and your mechanical “straight‑ahead” reference.
+Why it matters: Ensures the camera starts from a known pointing direction that matches your build.
+How it works: On startup, px3 sends one servo write to center_deg. The parameter center_arg is a convenient alias: if set (≥ 0), it overrides center_deg.
+Good starting values: 90.0 (or measure your true straight‑ahead).
+
+Tip: If “right” vs “left” is reversed, set invert_angle:=false or true (but only one layer should invert—either here in px3 or upstream).
+
+
+## better param in run.sh at 2025/10/20
+ros2 launch px3_launch px3_system_launch.py \
+  camera_path:=/dev/video2 \
+  serial_port:=/dev/ttyACM0 baud:=9600 max_angle:=180.0 \
+  min_angle:=0.0 lost_max_frames:=200 save_frames:=true \
+  tracker_type:=KCF enforce_bgr8:=true \
+  invert_angle:=false center_deg:=92.0 \
+  min_deg:=0.0 max_deg:=180.0 \
+  max_slew_deg_per_s:=180.0 deadband_deg:=0.8
+
