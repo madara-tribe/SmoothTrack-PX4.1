@@ -20,7 +20,6 @@ def generate_launch_description():
     # ABS control only
     arg_min_angle       = DeclareLaunchArgument('min_angle',  default_value='0.0')
     arg_max_angle  = DeclareLaunchArgument('max_angle',    default_value='180.0',  description='max deg')
-    arg_center   = DeclareLaunchArgument('center_on_start', default_value='false')  # px3 centers at boot
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
     arg_save     = DeclareLaunchArgument('save_frames',     default_value='false')
 
@@ -33,6 +32,13 @@ def generate_launch_description():
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
     arg_invert   = DeclareLaunchArgument('invert_angle',    default_value='true')
 
+    # Servo motion shaping (done in px3 to keep hardware concerns local)
+    arg_center_deg   = DeclareLaunchArgument('center_deg',         default_value='90.0',  description='Servo center (deg).')
+    arg_max_slew     = DeclareLaunchArgument('max_slew_deg_per_s', default_value='180.0', description='Rate limit at the hardware write stage.')
+    arg_deadband     = DeclareLaunchArgument('deadband_deg',       default_value='0.6',   description='Ignore tiny changes to prevent chatter.')
+    arg_min_deg      = DeclareLaunchArgument('min_deg',            default_value='0.0')
+    arg_max_deg      = DeclareLaunchArgument('max_deg',            default_value='180.0')
+
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
     px3_node = Node(
         package=LaunchConfiguration('px3_pkg'),
@@ -44,6 +50,11 @@ def generate_launch_description():
             'serial_port':     LaunchConfiguration('serial_port'),
             'baud':            ParameterValue(LaunchConfiguration('baud'), value_type=int),
             'invert_angle':    ParameterValue(LaunchConfiguration('invert_angle'), value_type=bool),
+            'center_deg':               ParameterValue(LaunchConfiguration('center_deg'), value_type=float),
+            'min_deg':                  ParameterValue(LaunchConfiguration('min_deg'), value_type=float),
+            'max_deg':                  ParameterValue(LaunchConfiguration('max_deg'), value_type=float),
+            'max_slew_deg_per_s':       ParameterValue(LaunchConfiguration('max_slew_deg_per_s'), value_type=float),
+            'deadband_deg':             ParameterValue(LaunchConfiguration('deadband_deg'), value_type=float),
         }]
     )
 
@@ -60,11 +71,8 @@ def generate_launch_description():
                 'device_path':     LaunchConfiguration('camera_path'),
                 'min_angle':              ParameterValue(LaunchConfiguration('min_angle'),              value_type=float),
                 'max_angle':    ParameterValue(LaunchConfiguration('max_angle'),    value_type=float),
-                'center_on_start': ParameterValue(LaunchConfiguration('center_on_start'), value_type=bool),
-
                 'lost_max_frames': ParameterValue(LaunchConfiguration('lost_max_frames'), value_type=int),
                 'save_frames':     ParameterValue(LaunchConfiguration('save_frames'),     value_type=bool),
-
                 'tracker_type':    LaunchConfiguration('tracker_type'),  # KCF | CSRT | none
                 'enforce_bgr8':    ParameterValue(LaunchConfiguration('enforce_bgr8'),    value_type=bool),
             }]
@@ -73,12 +81,16 @@ def generate_launch_description():
 
     return LaunchDescription([
         color,
-        # args
+        # arg declarations
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
-        arg_camera, arg_min_angle, arg_max_angle,
-        arg_center, arg_lost, arg_save,
+        
+        # px2 args
+        arg_camera, arg_min_angle, arg_max_angle, arg_lost, arg_save,
         arg_tracker, arg_bgr8,
-        arg_serial, arg_baud, arg_invert,
+
+        # px3 args
+        arg_serial, arg_baud, arg_invert, arg_center_deg,
+        arg_max_slew, arg_deadband, arg_min_deg, arg_max_deg,
         # nodes
         px3_node, px2_node
     ])

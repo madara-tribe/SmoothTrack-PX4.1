@@ -89,7 +89,6 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("max_angle", 180.0);
   this->declare_parameter<int>("lost_max_frames", 15);
   this->declare_parameter<bool>("save_frames", false);
-  this->declare_parameter<bool>("center_on_start", false); // px3 centers
   this->declare_parameter<std::string>("tracker_type", "KCF"); // "KCF" | "CSRT" | "none"
   this->declare_parameter<bool>("enforce_bgr8", true);
 
@@ -98,7 +97,6 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   max_angle_     = this->get_parameter("max_angle").as_double();
   lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
   save_frames_      = this->get_parameter("save_frames").as_bool();
-  center_on_start_  = this->get_parameter("center_on_start").as_bool();
   tracker_type_     = this->get_parameter("tracker_type").as_string();
   enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
 
@@ -170,12 +168,6 @@ void OnnxInferenceNode::callbackInference()
   started_ = true;
 
   RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
-
-  // Optional: ensure servo starts at 90° once
-  if (center_on_start_) {
-    servo_deg_ = 90.0;
-    publishState(90.0);
-  }
 
   // Prepare tracker runtime
   cv::Ptr<cv::Tracker> tracker;

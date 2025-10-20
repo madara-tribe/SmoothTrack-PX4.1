@@ -47,7 +47,6 @@ private:
   double max_angle_ = 180.0;          // max deg/update (rate limit)      
   int    lost_max_frames_ = 15;
   bool   save_frames_ = false;
-  bool   center_on_start_ = false;     // px3 already centers to 90°
   std::string tracker_type_ = "KCF";   // "KCF" | "CSRT" | "none"
   bool   enforce_bgr8_ = true;         // convert frames to CV_8UC3 for tracker
 
