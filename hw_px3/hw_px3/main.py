@@ -20,21 +20,18 @@ class AngleForwarder(Node):
         # --- Parameters (updated defaults) ---
         self.declare_parameter("serial_port", "/dev/ttyACM0")
         self.declare_parameter("baud", 9600)          # <- 115200bps
-        self.declare_parameter("invert_angle", True)  # <- send 180-angle
         self.declare_parameter("center_deg", 90)
 
         port = self.get_parameter("serial_port").get_parameter_value().string_value
         baud = int(self.get_parameter("baud").get_parameter_value().integer_value)
-        self.invert_angle = bool(self.get_parameter("invert_angle").get_parameter_value().bool_value)
         self.center_deg = float(self.get_parameter("center_deg").get_parameter_value().double_value)
-       
+
         self.board = telemetrix.Telemetrix(com_port=port)
         self.board.set_pin_mode_servo(SERVO_PIN, 100, 3000)
         time.sleep(2.0)  # Arduino auto-reset
         # --- Serial open & center ---
         try:
             self.board.servo_write(SERVO_PIN, int(self.center_deg))
-            self.last_angle = float(self.center_deg)
         except (RuntimeError, OSError) as e:
             pass
         self.get_logger().info(f'px3: opened serial {port} @ {baud}; centered to {self.center_deg:.1f}°')
@@ -51,26 +48,10 @@ class AngleForwarder(Node):
         self.get_logger().info("px3: published px3_ready=True")
         # --- Subscribe to setpoints (AbsResult) ---
         self.subscription = self.create_subscription(AbsResult, "inference", self._on_angle, 10)
-
-    def clamp_(self, angle):
-        return max(self.min_deg, min(self.max_deg, angle))
-
+   
     def _on_angle(self, msg: AbsResult):
-        # get angle as float
-        angle = float(msg.x_angle)
-        if self.invert_angle:
-            angle = 180 - angle
+        self.board.servo_write(SERVO_PIN, (180 - int(msg.x_angle)))
 
-        # Clamp
-        angle = self.clamp_(angle)
-
-        # rotate servo 
-        try:
-            if self.board:
-                self.board.servo_write(SERVO_PIN, int(angle))
-        except (RuntimeError, OSError, AttributeError) as e:
-            self.get_logger().error(f"px3: serial write failed: {e}")
-            return
 
     def destroy_node(self):
         try:
@@ -92,4 +73,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

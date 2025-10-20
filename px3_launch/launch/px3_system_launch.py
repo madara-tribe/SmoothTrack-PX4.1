@@ -30,14 +30,9 @@ def generate_launch_description():
     # -------- px3 (serial) arguments --------
     arg_serial   = DeclareLaunchArgument('serial_port',     default_value='/dev/ttyACM0')
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
-    arg_invert   = DeclareLaunchArgument('invert_angle',    default_value='true')
 
     # Servo motion shaping (done in px3 to keep hardware concerns local)
     arg_center_deg   = DeclareLaunchArgument('center_deg',         default_value='90.0',  description='Servo center (deg).')
-    arg_max_slew     = DeclareLaunchArgument('max_slew_deg_per_s', default_value='180.0', description='Rate limit at the hardware write stage.')
-    arg_deadband     = DeclareLaunchArgument('deadband_deg',       default_value='0.6',   description='Ignore tiny changes to prevent chatter.')
-    arg_min_deg      = DeclareLaunchArgument('min_deg',            default_value='0.0')
-    arg_max_deg      = DeclareLaunchArgument('max_deg',            default_value='180.0')
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
     px3_node = Node(
@@ -49,12 +44,7 @@ def generate_launch_description():
         parameters=[{
             'serial_port':     LaunchConfiguration('serial_port'),
             'baud':            ParameterValue(LaunchConfiguration('baud'), value_type=int),
-            'invert_angle':    ParameterValue(LaunchConfiguration('invert_angle'), value_type=bool),
             'center_deg':               ParameterValue(LaunchConfiguration('center_deg'), value_type=float),
-            'min_deg':                  ParameterValue(LaunchConfiguration('min_deg'), value_type=float),
-            'max_deg':                  ParameterValue(LaunchConfiguration('max_deg'), value_type=float),
-            'max_slew_deg_per_s':       ParameterValue(LaunchConfiguration('max_slew_deg_per_s'), value_type=float),
-            'deadband_deg':             ParameterValue(LaunchConfiguration('deadband_deg'), value_type=float),
         }]
     )
 
@@ -89,8 +79,8 @@ def generate_launch_description():
         arg_tracker, arg_bgr8,
 
         # px3 args
-        arg_serial, arg_baud, arg_invert, arg_center_deg,
-        arg_max_slew, arg_deadband, arg_min_deg, arg_max_deg,
+        arg_serial, arg_baud, arg_center_deg,
+       
         # nodes
         px3_node, px2_node
     ])
