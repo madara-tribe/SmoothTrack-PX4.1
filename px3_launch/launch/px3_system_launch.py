@@ -18,8 +18,6 @@ def generate_launch_description():
     arg_camera   = DeclareLaunchArgument('camera_path',     default_value='/dev/video2')
 
     # ABS control only
-    arg_min_angle       = DeclareLaunchArgument('min_angle',  default_value='0.0')
-    arg_max_angle  = DeclareLaunchArgument('max_angle',    default_value='180.0',  description='max deg')
     arg_lost     = DeclareLaunchArgument('lost_max_frames', default_value='15')
     arg_save     = DeclareLaunchArgument('save_frames',     default_value='false')
 
@@ -30,8 +28,6 @@ def generate_launch_description():
     # -------- px3 (serial) arguments --------
     arg_serial   = DeclareLaunchArgument('serial_port',     default_value='/dev/ttyACM0')
     arg_baud     = DeclareLaunchArgument('baud',            default_value='9600')
-
-    # Servo motion shaping (done in px3 to keep hardware concerns local)
     arg_center_deg   = DeclareLaunchArgument('center_deg',         default_value='90.0',  description='Servo center (deg).')
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
@@ -59,8 +55,6 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[{
                 'device_path':     LaunchConfiguration('camera_path'),
-                'min_angle':              ParameterValue(LaunchConfiguration('min_angle'),              value_type=float),
-                'max_angle':    ParameterValue(LaunchConfiguration('max_angle'),    value_type=float),
                 'lost_max_frames': ParameterValue(LaunchConfiguration('lost_max_frames'), value_type=int),
                 'save_frames':     ParameterValue(LaunchConfiguration('save_frames'),     value_type=bool),
                 'tracker_type':    LaunchConfiguration('tracker_type'),  # KCF | CSRT | none
@@ -75,8 +69,7 @@ def generate_launch_description():
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
         
         # px2 args
-        arg_camera, arg_min_angle, arg_max_angle, arg_lost, arg_save,
-        arg_tracker, arg_bgr8,
+        arg_camera, arg_lost, arg_save, arg_tracker, arg_bgr8,
 
         # px3 args
         arg_serial, arg_baud, arg_center_deg,
