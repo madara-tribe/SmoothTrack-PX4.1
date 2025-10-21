@@ -6,6 +6,7 @@
 #define IMG_WIDTH 960
 #define IMG_HEIGHT 540
 #define CENTER_TOLERANCE 266
+#define ARK_TIME 700
 #include <optional>
 #include <algorithm>
 #include <vector>
@@ -260,8 +261,8 @@ void OnnxInferenceNode::publishState(double deg)
   m.x_angle = deg;
   RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
   pub_abs_->publish(m);
-
-  if (!wait_for_ack_ms(250)) {   // tune timeout
+        
+  if (!wait_for_ack_ms(ARK_TIME)) {   // tune timeout
     RCLCPP_WARN(get_logger(), "px3 ACK timeout; continuing");
   }
 }
