@@ -80,8 +80,8 @@ static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
   return t;  // may be empty if not available in your build
 }
 
-OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
-: Node("px2", options)
+OnnxInferenceNode::OnnxInferenceNode()
+: Node("px2")
 {
   // ----- Params -----
   this->declare_parameter<std::string>("device_path", "/dev/video2");
@@ -105,6 +105,23 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
   qos.reliable().durability_volatile(); // stream; don't latch servo commands
   pub_abs_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
 
+  // Create a reentrant group so ACK callback can run while we wait
+  ack_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  rclcpp::SubscriptionOptions opts;
+  opts.callback_group = ack_group_;
+  
+  px3_ack_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+      "px3_ack", rclcpp::QoS(10),
+      [this](std_msgs::msg::Bool::ConstSharedPtr m) {
+        if (!m->data) return;
+        {
+          std::lock_guard<std::mutex> lk(ack_mtx_);
+          ack_ready_ = true;
+        }
+        ack_cv_.notify_one();
+      },
+      opts);
+
   // ----- px3_ready (latched) -----
   rclcpp::QoS ready_qos(1);
   ready_qos.reliable().transient_local();  // receive latched True
@@ -116,7 +133,7 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
         RCLCPP_INFO(this->get_logger(), "px2: received px3_ready=True");
       }
     });
-
+  
   // ----- Open camera -----
   RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
   cap_.open(device_path); // optionally: cap_.open(device_path, cv::CAP_V4L2);
@@ -136,6 +153,16 @@ OnnxInferenceNode::OnnxInferenceNode(const rclcpp::NodeOptions & options)
 
   // Run the pipeline once when allowed
   timer_ = this->create_wall_timer(50ms, std::bind(&OnnxInferenceNode::callbackInference, this));
+}
+
+// Block until ACK or timeout
+bool OnnxInferenceNode::wait_for_ack_ms(int timeout_ms)
+{
+  std::unique_lock<std::mutex> lk(ack_mtx_);
+  ack_ready_ = false;
+  return ack_cv_.wait_for(
+      lk, std::chrono::milliseconds(timeout_ms),
+      [this]{ return ack_ready_; });
 }
 
 double OnnxInferenceNode::computeServoAngleFromBox(
@@ -233,6 +260,10 @@ void OnnxInferenceNode::publishState(double deg)
   m.x_angle = deg;
   RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
   pub_abs_->publish(m);
+
+  if (!wait_for_ack_ms(250)) {   // tune timeout
+    RCLCPP_WARN(get_logger(), "px3 ACK timeout; continuing");
+  }
 }
 
 }  // namespace onnx_inference
@@ -241,10 +272,11 @@ int main(int argc, char * argv[])
 {
   rclcpp::NodeOptions options;
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<onnx_inference::OnnxInferenceNode>(options);
-  rclcpp::executors::MultiThreadedExecutor executor;
-  executor.add_node(node);
-  executor.spin();
+  auto node = std::make_shared<onnx_inference::OnnxInferenceNode>();
+  rclcpp::ExecutorOptions opts;
+  rclcpp::executors::MultiThreadedExecutor exec(opts, /*number_of_threads=*/4);
+  exec.add_node(node);
+  exec.spin();
   rclcpp::shutdown();
   return 0;
 }

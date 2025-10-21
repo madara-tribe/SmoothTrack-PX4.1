@@ -8,6 +8,8 @@
 #include <cmath>  // std::lround, std::abs
 #include <algorithm>   // std::clamp
 #include <std_msgs/msg/bool.hpp>
+#include <mutex>
+#include <condition_variable>
 #include <opencv2/opencv.hpp>
 
 #include "rclcpp/rclcpp.hpp"
@@ -23,13 +25,20 @@ namespace onnx_inference
 class OnnxInferenceNode : public rclcpp::Node
 {
 public:
-  explicit OnnxInferenceNode(const rclcpp::NodeOptions & options);
+  explicit OnnxInferenceNode();
 
 private:
   // ===== ROS I/O =====
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Publisher<custom_msgs::msg::AbsResult>::SharedPtr pub_abs_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr px3_ready_sub_;
+
+  // --- ACK from px3 ---
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr px3_ack_sub_;
+  rclcpp::CallbackGroup::SharedPtr ack_group_;
+  std::mutex ack_mtx_;
+  std::condition_variable ack_cv_;
+  bool ack_ready_ = false;
 
   // ===== Config / resources =====
   std::string pkg_path = PKG_PATH;
@@ -52,6 +61,7 @@ private:
 
   // ===== Main pipeline (DETECT ↔ TRACK) =====
   void callbackInference();
+  bool wait_for_ack_ms(int timeout_ms);
 
   // ===== Utilities =====
   double computeServoAngleFromBox(const cv::Rect& box);

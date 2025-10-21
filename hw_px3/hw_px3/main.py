@@ -8,6 +8,7 @@ from rclpy.qos import (
     HistoryPolicy,
     QoSProfile,
     ReliabilityPolicy)
+from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Bool
 from telemetrix import telemetrix
 
@@ -46,6 +47,10 @@ class AngleForwarder(Node):
         self.ready_pub = self.create_publisher(Bool, "px3_ready", ready_qos)
         self.ready_pub.publish(Bool(data=True))
         self.get_logger().info("px3: published px3_ready=True")
+        
+        # --- ACK publisher (non-latched) ---
+        self.ack_pub = self.create_publisher(Bool, "px3_ack", 10)
+
         # --- Subscribe to setpoints (AbsResult) ---
         self.subscription = self.create_subscription(AbsResult, "inference", self._on_angle, 10)
    
@@ -63,8 +68,11 @@ class AngleForwarder(Node):
 def main():
     rclpy.init()
     node = AngleForwarder()
+    # Use 4 threads (Jetson Nano has 4 logical CPUs)
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
