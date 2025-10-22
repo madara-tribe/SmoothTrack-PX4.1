@@ -1,0 +1,14 @@
+ros__parameters:
+    # Camera field-of-view (degrees)
+    hfov_deg: 53.1
+    vfov_deg: 40.7
+    dfov_deg: 64.0
+
+    # Image size used with these FOVs
+    width_px: 640
+    height_px: 480
+
+    # Derived convenience values
+    #  deg_per_px = HFOV / width
+    deg_per_px: 0.08296875        # ≈ 53.1 / 640
+    rad_per_px: 0.00144808        # ≈ deg_per_px * pi/180
