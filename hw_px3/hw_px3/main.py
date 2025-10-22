@@ -56,7 +56,8 @@ class AngleForwarder(Node):
         self.subscription = self.create_subscription(AbsResult, "inference", self._on_angle, 10)
    
     def _on_angle(self, msg: AbsResult):
-        self.board.servo_write(SERVO_PIN, (180 - int(msg.x_angle)))
+        #self.board.servo_write(SERVO_PIN, (180 - int(msg.x_angle)))
+        self.board.servo_write(SERVO_PIN, int(msg.x_angle))
         time.sleep(ARK_TIME)
         # immediate ACK (or add a short sleep if you prefer to wait for motion)
         self.ack_pub.publish(Bool(data=True))

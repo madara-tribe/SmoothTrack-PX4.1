@@ -6,11 +6,17 @@
 #include <string>
 #include <atomic>
 #include <cmath>  // std::lround, std::abs
-#include <algorithm>   // std::clamp
 #include <std_msgs/msg/bool.hpp>
 #include <mutex>
 #include <condition_variable>
+#include <optional>
+#include <algorithm>
+#include <vector>
+
 #include <opencv2/opencv.hpp>
+#include <opencv2/tracking.hpp>      // for KCF, CSRT, MIL, MedianFlow
+#include <opencv2/core/ocl.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 #include "custom_msgs/msg/abs_result.hpp"
@@ -19,6 +25,37 @@
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
 #include "yolo_inference.h"  // declares Result and YoloDetect
+
+
+// Exact pixel->yaw mapping: theta = atan( 2*tan(HFOV/2) * (dx/W) )
+static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hfov_deg)
+{
+    const double PI   = 3.14159265358979323846;
+    const double hfov = hfov_deg * PI / 180.0;
+    const double yaw_rad = std::atan( (2.0 * std::tan(0.5 * hfov)) * (dx_px / width_px) );
+    return yaw_rad * 180.0 / PI;
+}
+
+// Undo letterbox padding from NET (netW x netH) back to RAW (imgW x imgH)
+static inline cv::Rect2f unletterboxRect(const cv::Rect2f& r_net,
+                                         int imgW, int imgH,
+                                         int netW, int netH)
+{
+    const float s    = std::min(netW / float(imgW), netH / float(imgH));
+    const int   newW = int(std::round(imgW * s));
+    const int   newH = int(std::round(imgH * s));
+    const float padX = (netW - newW) * 0.5f;
+    const float padY = (netH - newH) * 0.5f;
+
+    cv::Rect2f r;
+    r.x      = (r_net.x - padX) / s;
+    r.y      = (r_net.y - padY) / s;
+    r.width  =  r_net.width  / s;
+    r.height =  r_net.height / s;
+    r &= cv::Rect2f(0,0,(float)imgW,(float)imgH);
+    return r;
+}
+
 
 namespace onnx_inference
 {
@@ -50,10 +87,9 @@ private:
   std::atomic<bool> px3_ready_{false};
   bool started_ = false;               // ensure the long loop runs once
   double  servo_deg_ = 90;                // last commanded servo angle
+  float hfov_deg = 53.1;
 
   // ===== Tracking / control params =====
-  double min_angle_       = 0.0;
-  double max_angle_ = 180.0;          // max deg/update (rate limit)      
   int    lost_max_frames_ = 15;
   bool   save_frames_ = false;
   std::string tracker_type_ = "KCF";   // "KCF" | "CSRT" | "none"
