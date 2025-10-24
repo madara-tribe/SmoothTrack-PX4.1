@@ -1,5 +1,5 @@
 #include "inference.h"
-
+#include "tracker_tool.h"
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
@@ -11,68 +11,6 @@ using namespace std::chrono_literals;
 
 namespace onnx_inference
 {
-// Convert any common frame to CV_8UC3 (BGR). If enforce_bgr8=false, returns src.
-static inline cv::Mat to_bgr8(const cv::Mat& src, bool enforce_bgr8)
-{
-  if (!enforce_bgr8) return src;
-  if (src.type() == CV_8UC3) return src;
-
-  cv::Mat tmp = src;
-  // 1) Convert depth to 8U if needed
-  if (src.depth() != CV_8U) {
-    double alpha = 1.0, beta = 0.0;
-    if (src.depth() == CV_16U)      alpha = 1.0 / 256.0;  // 16U -> 8U
-    else if (src.depth() == CV_32F) alpha = 255.0;        // 32F -> 8U
-    src.convertTo(tmp, CV_8U, alpha, beta);
-  }
-
-  // 2) Convert channels to 3 (BGR)
-  cv::Mat dst;
-  if (tmp.type() == CV_8UC2) {                     // YUYV (YUY2)
-    cv::cvtColor(tmp, dst, cv::COLOR_YUV2BGR_YUY2);
-    return dst;
-  }
-  const int ch = tmp.channels();
-  if (ch == 3) {
-    dst = tmp;                                      // already BGR8
-  } else if (ch == 1) {
-    cv::cvtColor(tmp, dst, cv::COLOR_GRAY2BGR);
-  } else if (ch == 4) {
-    cv::cvtColor(tmp, dst, cv::COLOR_BGRA2BGR);
-  } else {
-    // Fallback: keep first 3 channels
-    std::vector<cv::Mat> channels;
-    cv::split(tmp, channels);
-    while (channels.size() < 3) channels.push_back(channels.back());
-    cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, dst);
-  }
-  return dst;
-}
-
-static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
-{
-  cv::Ptr<cv::Tracker> t;
-  try {
-    std::string up = type;
-    std::transform(up.begin(), up.end(), up.begin(), ::toupper);
-
-    if (up == "KCF")          t = cv::TrackerKCF::create();
-    else if (up == "CSRT")    t = cv::TrackerCSRT::create();
-    else if (up == "MIL")     t = cv::TrackerMIL::create();
-    else {
-      // optional: fallback to KCF
-      t = cv::TrackerKCF::create();
-    }
-  } catch (const cv::Exception& e) {
-    std::cerr << "Tracker creation failed (" << type << "): " << e.what() << std::endl;
-    t.release();
-  } catch (...) {
-    std::cerr << "Tracker creation failed (" << type << "): unknown exception" << std::endl;
-    t.release();
-  }
-  return t;  // may be empty if not available in your build
-}
-
 OnnxInferenceNode::OnnxInferenceNode()
 : Node("px2")
 {
@@ -164,10 +102,8 @@ void OnnxInferenceNode::callbackInference()
   cv::Ptr<cv::Tracker> tracker;
   cv::Rect track_box;
   int lost_frames = 0;
-
   enum class Mode { DETECT, TRACK };
   Mode mode = Mode::DETECT;
-
   int frame_id = 0;
   cv::Mat frame;
   
@@ -220,9 +156,6 @@ void OnnxInferenceNode::callbackInference()
       RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f°", servo_deg_);
       publishState(static_cast<float>(servo_deg_));
 
-      // If tracking disabled, remain in DETECT
-      if (tracker_type_ == "none") { ++frame_id; continue; }
-
       // Start tracker
       tracker = make_tracker(tracker_type_);
       if (tracker.empty()) {
@@ -230,7 +163,6 @@ void OnnxInferenceNode::callbackInference()
                      tracker_type_.c_str());
         ++frame_id; continue;
       }
-    
       // init() on BGR8 for stability
       try {
         cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
