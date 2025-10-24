@@ -13,7 +13,7 @@ from std_msgs.msg import Bool
 from telemetrix import telemetrix
 
 SERVO_PIN = 9
-ARK_TIME = 0.4
+ARK_TIME = 0.05
 
 class AngleForwarder(Node):
     def __init__(self):

@@ -14,8 +14,6 @@
 #include <vector>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/tracking.hpp>      // for KCF, CSRT, MIL, MedianFlow
-#include <opencv2/core/ocl.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include "rclcpp/rclcpp.hpp"
