@@ -1,5 +1,5 @@
 #include "inference.h"
-#include "tracker_tool.h"
+
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
@@ -20,18 +20,21 @@ OnnxInferenceNode::OnnxInferenceNode()
   this->declare_parameter<bool>("save_frames", false);
   this->declare_parameter<std::string>("tracker_type", "KCF"); // "KCF" | "CSRT" | "none"
   this->declare_parameter<bool>("enforce_bgr8", true);
-
+  this->declare_parameter<std::string>("thirds_target_", "center");
+  this->declare_parameter<bool>("draw_thirds_overlay", true);
+  
   device_path       = this->get_parameter("device_path").as_string();
   lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
   save_frames_      = this->get_parameter("save_frames").as_bool();
   tracker_type_     = this->get_parameter("tracker_type").as_string();
   enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
-
+  thirds_target_     = parseThirdsTarget(this->get_parameter("thirds_target_").as_string());
+  draw_thirds_overlay_ = this->get_parameter("draw_thirds_overlay").as_bool();  
   // ----- Publisher for servo setpoints -----
   rclcpp::QoS qos(10);
-  qos.reliable().durability_volatile(); // stream; don't latch servo commands
+  qos.reliable().durability_volatile(); // stream; don"t latch servo commands
   pub_abs_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
-
+  
   // Create a reentrant group so ACK callback can run while we wait
   ack_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   rclcpp::SubscriptionOptions opts;
@@ -117,12 +120,6 @@ void OnnxInferenceNode::callbackInference()
       std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
       std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
 
-      if (save_frames_) {
-        cv::Mat vis = yolo_->drawBoundingBox(frame, results);
-        cv::imwrite(pkg_path + "/data/detect_" + std::to_string(frame_id) + ".png", vis);
-      }
-
-      // pick one candidate (largest area; filter by class if requested)
       std::optional<Result> picked;
       int best_area = -1;
       for (const auto& r : results) {
@@ -140,22 +137,31 @@ void OnnxInferenceNode::callbackInference()
         std::max(1, std::abs(picked->x2 - picked->x1)),
         std::max(1, std::abs(picked->y2 - picked->y1))
       );
-      box &= cv::Rect2f(0, 0, (float)IMG_WIDTH, (float)IMG_HEIGHT);
+      box &= cv::Rect2f(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
       if (box.area() <= 1.f) { ++frame_id; continue; }
-      
-      const cv::Rect2f box_raw =
-          unletterboxRect(box, IMG_WIDTH, IMG_HEIGHT, YOLO_INPUT_W, YOLO_INPUT_H);
-      const double cx = box_raw.x + 0.5 * box_raw.width;
-      const double target_x = 0.5 * IMG_WIDTH;
-      const double e_px = target_x - cx;   // +e means object is to the left of target -> rotate right
+      const int W = frame.cols, H = frame.rows;
+      const cv::Rect2f roi_img =
+          unletterboxRect(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
+      const double cx = roi_img.x + 0.5 * roi_img.width;
+      double target_x = thirdsX(W, thirds_target_, cx);
+      const double e_px = target_x - cx;
       // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
-      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)IMG_WIDTH, hfov_deg);
+      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
       double servo = 90.0 + yaw_deg;
       servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
-      RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f°", servo_deg_);
+      //RCLCPP_INFO(this->get_logger(),
+      //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
+      //W, cx, target_x, e_px, yaw_deg, servo_deg_);
+
       publishState(static_cast<float>(servo_deg_));
 
+      if (save_frames_ && draw_thirds_overlay_) {
+        cv::Mat vis = frame.clone();
+        drawThirdsOverlay(vis, {0,255,255}, {0,0,255}, (int)std::lround(target_x), H/2);
+        cv::rectangle(vis, roi_img, {0,255,0}, 2);
+        cv::imwrite(pkg_path + "/data/detect_thirds_" + std::to_string(frame_id) + ".png", vis);
+      }
       // Start tracker
       tracker = make_tracker(tracker_type_);
       if (tracker.empty()) {
@@ -163,11 +169,10 @@ void OnnxInferenceNode::callbackInference()
                      tracker_type_.c_str());
         ++frame_id; continue;
       }
-      // init() on BGR8 for stability
       try {
         cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
         tracker->init(frame_bgr, box);
-        track_box   = cv::Rect2d(box);
+        track_box   = cv::Rect2d(roi_img);
         lost_frames = 0;
         mode        = Mode::TRACK;
         RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo=%d°)",
@@ -178,27 +183,29 @@ void OnnxInferenceNode::callbackInference()
       }
 
      } else { // TRACK mode
-      // TRACK uses BGR8
-      cv::Rect2d cur = track_box;
       cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
       bool ok = tracker && tracker->update(frame_bgr, track_box);
-      if (ok && cur.width > 1.0 && cur.height > 1.0) {
-        const cv::Rect2f track_box_raw =
-          unletterboxRect(cur, IMG_WIDTH, IMG_HEIGHT, YOLO_INPUT_W, YOLO_INPUT_H);
-        const double cx = track_box_raw.x + 0.5 * track_box_raw.width;
-        const double target_x = 0.5 * IMG_WIDTH;
-        const double e_px = target_x - cx;   // +e means object is to the left of target -> rotate right
-        // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
-        const double yaw_deg = pixelErrorToYawDeg(e_px, (double)IMG_WIDTH, hfov_deg);
+      if (ok && track_box.width > 1.0 && track_box.height > 1.0) {
+        const int W = frame_bgr.cols, H = frame_bgr.rows;
+        // clip and use POST-update image-space ROI
+        track_box &= cv::Rect(0,0,W,H);
+        const double cx = track_box.x + 0.5 * track_box.width;
+        const double target_x = thirdsX(W, thirds_target_, cx);
+        const double e_px = target_x - cx;   
+        const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
         double servo = 90.0 + yaw_deg;
         servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
-        RCLCPP_INFO(this->get_logger(), "servo angle is: %.2f°", servo_deg_);
+        //RCLCPP_INFO(this->get_logger(),
+        //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
+        //W, cx, target_x, e_px, yaw_deg, servo_deg_);
+
         publishState(static_cast<float>(servo_deg_));
-        if (save_frames_) {
-          cv::Mat out = frame.clone();
-          cv::rectangle(out, track_box, {0,255,0}, 2);
-          cv::imwrite(pkg_path + "/data/track_" + std::to_string(frame_id) + ".png", out);
+        if (save_frames_ && draw_thirds_overlay_) {
+          cv::Mat vis = frame.clone();
+          drawThirdsOverlay(vis, {0,255,255}, {0,0,255}, (int)std::lround(target_x), H/2);
+          cv::rectangle(vis, track_box, {0,255,0}, 2);
+          cv::imwrite(pkg_path + "/data/track_thirds_" + std::to_string(frame_id) + ".png", vis);
         }
         lost_frames = 0;
       } else {
@@ -242,4 +249,3 @@ int main(int argc, char * argv[])
   rclcpp::shutdown();
   return 0;
 }
-

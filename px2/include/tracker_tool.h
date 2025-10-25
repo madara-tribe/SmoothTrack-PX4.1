@@ -2,7 +2,11 @@
 #pragma once
 #include <opencv2/core.hpp>
 #include <opencv2/tracking.hpp>
+#include <limits>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
 
 // ---- helpers to map string to KCF modes safely ----
 static inline int kcfModeCN() {
@@ -20,7 +24,6 @@ static inline int kcfModeGRAY() {
 #endif
 }
 
-
 struct KcfTuning {
   bool   enable              = true;   // enable tuned params instead of OpenCV defaults
   double interp_factor       = 0.012;  // slower model update -> less drift
@@ -33,7 +36,7 @@ struct KcfTuning {
   bool   use_cn              = true;   // use Color-Names in PCA branch
   bool   resize              = true;
   int    max_patch_size      = 80*80;  // limit ROI to keep memory bounded
-} g_kcf;
+} static g_kcf;
 
 
 static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)

@@ -23,7 +23,8 @@
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
 #include "yolo_inference.h"  // declares Result and YoloDetect
-
+#include "tracker_tool.h"
+#include "composition_tool.h"
 
 // Exact pixel->yaw mapping: theta = atan( 2*tan(HFOV/2) * (dx/W) )
 static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hfov_deg)
@@ -92,13 +93,13 @@ private:
   bool   save_frames_ = false;
   std::string tracker_type_ = "KCF";   // "KCF" | "CSRT" | "none"
   bool   enforce_bgr8_ = true;         // convert frames to CV_8UC3 for tracker
-
+  ThirdsTarget thirds_target_ = ::ThirdsTarget::CENTER;
+  bool draw_thirds_overlay_{true};
   // ===== Main pipeline (DETECT ↔ TRACK) =====
   void callbackInference();
   bool wait_for_ack_ms(int timeout_ms);
 
   // ===== Utilities =====
-  double computeServoAngleFromBox(const cv::Rect& box);
   void publishState(double deg);
 };
 
