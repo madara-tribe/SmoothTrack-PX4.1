@@ -1,7 +1,7 @@
 
 #pragma once
-#include <opencv2/core.hpp>
 #include <opencv2/tracking.hpp>
+#include <opencv2/tracking/tracking_legacy.hpp>
 #include <limits>
 #include <string>
 #include <vector>
@@ -66,7 +66,7 @@ static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
         t = cv::TrackerKCF::create();
       }
     }
-    else if (up == "CSRT")    t = cv::TrackerCSRT::create();
+    else if (up == "MOSSE")    t = cv::legacy::upgradeTrackingAPI(cv::legacy::TrackerMOSSE::create());
   } catch (const cv::Exception& e) {
     std::cerr << "Tracker creation failed (" << type << "): " << e.what() << std::endl;
     t.release();
