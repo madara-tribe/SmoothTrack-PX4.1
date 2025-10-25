@@ -1,0 +1,24 @@
+## merit of using 3×3構図ターゲット
+=> CENTER を選べば、通常の「中央ターゲット」と同一挙動です。
+=> LEFT と RIGHT を選んだ場合は、誤差計算で使う基準点が 画面中央 (CENTER: W/2) の代わりに 左1/3 (W/3) または 右2/3 (2W/3) になります。したがって誤差は
+error = target_x - bbox_center_x（target_x が W/3, W/2, 2W/3 のいずれか）
+
+
+Great question. Off-centering the setpoint (rule-of-thirds) can beat “always center” for both control and perception reasons:
+
+Smoother control, less oscillation
+Centering forces constant zero-crossings: tiny sign flips around the middle make the servo dither. A third-based setpoint (or “AUTO nearest third”) reduces those frequent sign changes, so you get fewer micro-corrections and less jitter.
+
+More “lead room” for motion
+When a target moves left→right, placing the setpoint on the right third gives visual/physical headroom in the motion direction. That keeps the subject away from the frame edge even if the servo lags, reducing edge-loss and re-acquisition events.
+
+Smaller, more purposeful moves
+With AUTO nearest third, the setpoint jumps to the closest stable anchor (W/3 or 2W/3) instead of demanding a full re-center. That means shorter travel, lower latency, and fewer large corrections—especially useful when the servo has speed/acceleration limits.
+
+Better robustness during occlusion
+Biasing off-center preserves more background on the “open” side, which often stabilizes data association and helps trackers re-lock (you maintain context ahead of the trajectory instead of cropping it out).
+
+Nicer framing “for free”
+If you record the video, rule-of-thirds is usually more pleasing. You get composition benefits without extra compute.
+
+Bottom line: center is simplest, but thirds gives a stable attractor that cuts jitter, reduces edge hits on fast lateral motion, and often improves re-lock—while also producing better-looking footage.
