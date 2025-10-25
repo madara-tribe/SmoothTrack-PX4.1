@@ -67,6 +67,7 @@ static cv::Ptr<cv::Tracker> make_tracker(const std::string& type)
       }
     }
     else if (up == "MOSSE")    t = cv::legacy::upgradeTrackingAPI(cv::legacy::TrackerMOSSE::create());
+    else if (up == "CSRT")    t = cv::TrackerCSRT::create();
   } catch (const cv::Exception& e) {
     std::cerr << "Tracker creation failed (" << type << "): " << e.what() << std::endl;
     t.release();
