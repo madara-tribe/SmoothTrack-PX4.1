@@ -93,6 +93,26 @@ bool OnnxInferenceNode::wait_for_ack_ms(int timeout_ms)
       [this]{ return ack_ready_; });
 }
 
+void onnx_inference::OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat& frame,
+                                                                  const cv::Rect2d& roi_img,
+                                                                  int frame_id,
+                                                                  double target_x,
+                                                                  const std::string& name_prefix)
+{
+  if (!(this->save_frames_ && this->draw_thirds_overlay_)) return;
+  cv::Mat vis = frame.clone();
+  const int H = vis.rows;
+  // draw thirds grid + target marker
+  drawThirdsOverlay(vis, /*grid*/ {0,255,255}, /*mark*/ {0,0,255},
+                    static_cast<int>(std::lround(target_x)), H/2);
+  // draw ROI
+  cv::rectangle(vis, roi_img, {0,255,0}, 2);
+  // save
+  const std::string out = this->pkg_path + "/data/" + name_prefix
+                        + std::to_string(frame_id) + ".png";
+  cv::imwrite(out, vis);
+}
+
 void OnnxInferenceNode::callbackInference()
 {
   // ensure we start only once, and only after px3_ready flips us on
@@ -155,13 +175,8 @@ void OnnxInferenceNode::callbackInference()
       //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
       publishState(static_cast<float>(servo_deg_));
-
-      if (save_frames_ && draw_thirds_overlay_) {
-        cv::Mat vis = frame.clone();
-        drawThirdsOverlay(vis, {0,255,255}, {0,0,255}, (int)std::lround(target_x), H/2);
-        cv::rectangle(vis, roi_img, {0,255,0}, 2);
-        cv::imwrite(pkg_path + "/data/detect_thirds_" + std::to_string(frame_id) + ".png", vis);
-      }
+      saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "detect_thirds_");
+      
       // Start tracker
       tracker = make_tracker(tracker_type_);
       if (tracker.empty()) {
@@ -201,12 +216,7 @@ void OnnxInferenceNode::callbackInference()
         //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
         publishState(static_cast<float>(servo_deg_));
-        if (save_frames_ && draw_thirds_overlay_) {
-          cv::Mat vis = frame.clone();
-          drawThirdsOverlay(vis, {0,255,255}, {0,0,255}, (int)std::lround(target_x), H/2);
-          cv::rectangle(vis, track_box, {0,255,0}, 2);
-          cv::imwrite(pkg_path + "/data/track_thirds_" + std::to_string(frame_id) + ".png", vis);
-        }
+        saveThirdsOverlayIfNeeded(frame_bgr, track_box, frame_id, target_x, "track_thirds_");
         lost_frames = 0;
       } else {
         if (++lost_frames >= lost_max_frames_) {

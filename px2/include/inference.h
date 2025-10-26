@@ -98,9 +98,12 @@ private:
   // ===== Main pipeline (DETECT ↔ TRACK) =====
   void callbackInference();
   bool wait_for_ack_ms(int timeout_ms);
-
+  
   // ===== Utilities =====
   void publishState(double deg);
+  void saveThirdsOverlayIfNeeded(const cv::Mat& frame,
+                                 const cv::Rect2d& roi_img, int frame_id,
+                                 double target_x, const std::string& name_prefix);
 };
 
 }  // namespace onnx_inference
