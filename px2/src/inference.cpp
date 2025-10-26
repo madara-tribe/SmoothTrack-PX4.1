@@ -131,17 +131,17 @@ void OnnxInferenceNode::callbackInference()
       if (!picked) { ++frame_id; continue; }
 
       // bbox sanity
-      cv::Rect2f box(
+      cv::Rect2d box(
         std::min(picked->x1, picked->x2),
         std::min(picked->y1, picked->y2),
         std::max(1, std::abs(picked->x2 - picked->x1)),
         std::max(1, std::abs(picked->y2 - picked->y1))
       );
-      box &= cv::Rect2f(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
+      box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
       if (box.area() <= 1.f) { ++frame_id; continue; }
       const int W = frame.cols, H = frame.rows;
-      const cv::Rect2f roi_img =
-          unletterboxRect(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
+      const cv::Rect2d roi_img =
+          unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
       const double cx = roi_img.x + 0.5 * roi_img.width;
       double target_x = thirdsX(W, thirds_target_, cx);
       const double e_px = target_x - cx;
