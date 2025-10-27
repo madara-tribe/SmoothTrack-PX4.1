@@ -1,4 +1,5 @@
 #include "inference.h"
+#include "sort_tracker.h"
 
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
@@ -122,25 +123,37 @@ void OnnxInferenceNode::callbackInference()
   RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
 
   // Prepare tracker runtime
-  cv::Ptr<cv::Tracker> tracker;
-  cv::Rect track_box;
-  int lost_frames = 0;
-  enum class Mode { DETECT, TRACK };
-  Mode mode = Mode::DETECT;
-  int frame_id = 0;
+int frame_id = 0;
   cv::Mat frame;
   
   while (rclcpp::ok() && cap_.read(frame)) {
     if (frame.empty()) continue;
     const cv::Size imsz = frame.size();
 
-    if (mode == Mode::DETECT) {
-      // YOLO until target appears
+    {
+// YOLO until target appears
       cv::Mat inputImage = yolo_->preprocess(frame, YOLO_INPUT_H, YOLO_INPUT_W);
       std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
       std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
 
-      std::optional<Result> picked;
+      /*SORT_INTEGRATION_START*/
+// Convert YOLO results -> sort::Detection
+std::vector<sort::Detection> dets;
+dets.reserve(results.size());
+for (const auto& r : results) {
+  cv::Rect2f b((float)std::min(r.x1, r.x2),
+               (float)std::min(r.y1, r.y2),
+               (float)std::max(1, std::abs(r.x2 - r.x1)),
+               (float)std::max(1, std::abs(r.y2 - r.y1)));
+  // Use available fields: 'accuracy' (score) and 'obj_id' (class id)
+  dets.push_back(sort::Detection{b, r.accuracy, r.obj_id});
+}
+// Update SORT and fetch tracks
+static sort::SortTracker g_sorter;
+auto tracks = g_sorter.update(dets);
+(void)tracks; // currently not used for downstream logic here
+/*SORT_INTEGRATION_END*/
+std::optional<Result> picked;
       int best_area = -1;
       for (const auto& r : results) {
         int w = std::abs(r.x2 - r.x1);
@@ -176,61 +189,8 @@ void OnnxInferenceNode::callbackInference()
 
       publishState(static_cast<float>(servo_deg_));
       saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "detect_thirds_");
-      
-      // Start tracker
-      tracker = make_tracker(tracker_type_);
-      if (tracker.empty()) {
-        RCLCPP_ERROR(this->get_logger(), "[px2] OpenCV tracker '%s' unavailable. Staying in DETECT.",
-                     tracker_type_.c_str());
-        ++frame_id; continue;
-      }
-      try {
-        cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
-        tracker->init(frame_bgr, box);
-        track_box   = cv::Rect2d(roi_img);
-        lost_frames = 0;
-        mode        = Mode::TRACK;
-        RCLCPP_INFO(this->get_logger(), "[px2] DETECT→TRACK (tracker=%s, servo=%d°)",
-                    tracker_type_.c_str(), servo_deg_);
-      } catch (const cv::Exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "[px2] tracker->init threw: %s. Staying in DETECT.", e.what());
-        tracker.release();
-      }
-
-     } else { // TRACK mode
-      cv::Mat frame_bgr = to_bgr8(frame, enforce_bgr8_);
-      bool ok = tracker && tracker->update(frame_bgr, track_box);
-      if (ok && track_box.width > 1.0 && track_box.height > 1.0) {
-        const int W = frame_bgr.cols, H = frame_bgr.rows;
-        // clip and use POST-update image-space ROI
-        track_box &= cv::Rect(0,0,W,H);
-        const double cx = track_box.x + 0.5 * track_box.width;
-        const double target_x = thirdsX(W, thirds_target_, cx);
-        const double e_px = target_x - cx;   
-        const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
-        double servo = 90.0 + yaw_deg;
-        servo_deg_ = std::clamp(servo, 0.0, 180.0);
-
-        //RCLCPP_INFO(this->get_logger(),
-        //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
-        //W, cx, target_x, e_px, yaw_deg, servo_deg_);
-
-        publishState(static_cast<float>(servo_deg_));
-        saveThirdsOverlayIfNeeded(frame_bgr, track_box, frame_id, target_x, "track_thirds_");
-        lost_frames = 0;
-      } else {
-        if (++lost_frames >= lost_max_frames_) {
-          RCLCPP_WARN(this->get_logger(), "[px2] TRACK lost → DETECT after %d frames.", lost_frames);
-          tracker.release();
-          lost_frames = 0;
-          mode = Mode::DETECT;
-        }
-      }
-      
-    } 
-    ++frame_id;
-  }
-  RCLCPP_INFO(this->get_logger(), "[px2] pipeline finished.");
+}
+}
 }
 
 void OnnxInferenceNode::publishState(double deg)

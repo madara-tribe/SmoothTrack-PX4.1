@@ -54,4 +54,6 @@ private:
     int pad_size_x;
     int model_width_after_padding;
     int model_height_after_padding;
+
+    int track_id = -1; // added for SORT ID
 };

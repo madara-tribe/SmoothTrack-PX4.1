@@ -23,7 +23,7 @@
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
 #include "yolo_inference.h"  // declares Result and YoloDetect
-#include "tracker_tool.h"
+#include "sort_tracker.h" // replaced OpenCV tracker with SORT
 #include "composition_tool.h"
 
 // Exact pixel->yaw mapping: theta = atan( 2*tan(HFOV/2) * (dx/W) )
