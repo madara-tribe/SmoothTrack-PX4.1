@@ -15,7 +15,7 @@ std::vector<std::string> classNames = {
     "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 };
 
-std::string TARGET = "clock";
+std::string TARGET = "person";
 
 YoloDetect::YoloDetect(const std::string& modelPath){
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
