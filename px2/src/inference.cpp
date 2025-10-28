@@ -9,6 +9,7 @@
 
 using namespace std::chrono_literals;
 static sort::SortTracker g_sorter;
+constexpr int AGE_GATE = 5; // allow up to 5 frames without detection
 
 namespace onnx_inference
 {
@@ -92,7 +93,7 @@ bool OnnxInferenceNode::wait_for_ack_ms(int timeout_ms)
       [this]{ return ack_ready_; });
 }
 
-void onnx_inference::OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat& frame,
+void OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat& frame,
                                                                   const cv::Rect2d& roi_img,
                                                                   int frame_id,
                                                                   double target_x,
@@ -104,9 +105,7 @@ void onnx_inference::OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat&
   // draw thirds grid + target marker
   drawThirdsOverlay(vis, /*grid*/ {0,255,255}, /*mark*/ {0,0,255},
                     static_cast<int>(std::lround(target_x)), H/2);
-  // draw ROI
   cv::rectangle(vis, roi_img, {0,255,0}, 2);
-  // save
   const std::string out = this->pkg_path + "data/" + name_prefix
                         + std::to_string(frame_id) + ".png";
   cv::imwrite(out, vis);
@@ -117,10 +116,8 @@ void OnnxInferenceNode::callbackInference()
   // ensure we start only once, and only after px3_ready flips us on
   if (started_ || !px3_ready_) return;
   started_ = true;
-
+  
   RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
-
-  // Prepare tracker runtime
   int frame_id = 0;
   cv::Mat frame;
   
@@ -140,7 +137,6 @@ void OnnxInferenceNode::callbackInference()
     std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
 
     /*SORT_INTEGRATION_START*/
-    // Convert YOLO results -> sort::Detection
     std::vector<sort::Detection> dets;
     dets.reserve(results.size());
     for (const auto& r : results) {
@@ -173,7 +169,6 @@ void OnnxInferenceNode::callbackInference()
         std::max(1, std::abs(picked->x2 - picked->x1)),
         std::max(1, std::abs(picked->y2 - picked->y1))
       );
-      box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
       if (box.area() <= 1.f) { ++frame_id; continue; }
       const int W = frame.cols, H = frame.rows;
       const cv::Rect2d roi_img =
@@ -207,18 +202,11 @@ void OnnxInferenceNode::callbackInference()
       }
 
       // Gate: only trust predictions that are not too stale
-      constexpr int AGE_GATE = 5; // allow up to 5 frames without detection
       if (best && best->time_since_update <= AGE_GATE) {
-        // 2) Use the predicted box for control (same coord system as YOLO input)
         cv::Rect2d pred_box = best->box;
         const int W = frame.cols, H = frame.rows;
-
-        // If your pipeline uses letterbox undo, apply it to the predicted box too
         cv::Rect2d roi_img = unletterboxRect2d(pred_box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
-        roi_img &= cv::Rect2d(0, 0, W, H);
-
         if (roi_img.area() > 1.0) {
-          // 3) Compute servo command exactly like when you have a detection
           const double cx = roi_img.x + 0.5 * roi_img.width;
           const double target_x = thirdsX(W, thirds_target_, cx);
           const double e_px = target_x - cx;
@@ -226,7 +214,6 @@ void OnnxInferenceNode::callbackInference()
           servo_deg_ = std::clamp(90.0 + yaw_deg, 0.0, 180.0);
 
           publishState(static_cast<float>(servo_deg_));
-          // Optional: overlay to visualize prediction usage
           saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "pred_thirds_");
         }
       }
