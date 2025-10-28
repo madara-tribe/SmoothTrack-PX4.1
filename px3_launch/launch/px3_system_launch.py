@@ -22,10 +22,9 @@ def generate_launch_description():
     arg_save     = DeclareLaunchArgument("save_frames",     default_value="false")
 
     # Tracker controls
-    arg_tracker  = DeclareLaunchArgument("tracker_type",    default_value="KCF",  description="KCF | CSRT | none")
     arg_bgr8     = DeclareLaunchArgument("enforce_bgr8",    default_value="true", description="force BGR8 to tracker")
     arg_thirds   = DeclareLaunchArgument("thirds_target_",       default_value="center", description="left|center|right|auto")
-    arg_overlay  = DeclareLaunchArgument("draw_thirds_overlay", default_value="true",   description="draw 3x3 grid overlay")
+    arg_prepro_use  = DeclareLaunchArgument("preprocess_enable", default_value="true",   description="use preproccess")
 
     # -------- px3 (serial) arguments --------
     arg_serial   = DeclareLaunchArgument("serial_port",     default_value="/dev/ttyACM0")
@@ -59,10 +58,9 @@ def generate_launch_description():
                 "device_path":     LaunchConfiguration("camera_path"),
                 "lost_max_frames": ParameterValue(LaunchConfiguration("lost_max_frames"), value_type=int),
                 "save_frames":     ParameterValue(LaunchConfiguration("save_frames"),     value_type=bool),
-                "tracker_type":    LaunchConfiguration("tracker_type"),  # KCF | CSRT | none
                 "enforce_bgr8":    ParameterValue(LaunchConfiguration("enforce_bgr8"),    value_type=bool),
                 "thirds_target_":       LaunchConfiguration("thirds_target_"),
-                "draw_thirds_overlay": ParameterValue(LaunchConfiguration("draw_thirds_overlay"), value_type=bool),
+                "preprocess_enable": ParameterValue(LaunchConfiguration("preprocess_enable"), value_type=bool),
             }]
         )]
     )
@@ -73,7 +71,7 @@ def generate_launch_description():
         arg_px2_pkg, arg_px2_exec, arg_px3_pkg, arg_px3_exec,
         
         # px2 args
-        arg_camera, arg_lost, arg_save, arg_tracker, arg_bgr8, arg_thirds, arg_overlay,
+        arg_camera, arg_lost, arg_save, arg_bgr8, arg_thirds, arg_prepro_use,
 
         # px3 args
         arg_serial, arg_baud, arg_center_deg,

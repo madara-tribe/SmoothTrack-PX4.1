@@ -6,7 +6,7 @@
 #define YOLO_INPUT_W 640
 #define IMG_WIDTH 960
 #define IMG_HEIGHT 540
-#define ARK_TIME 500
+#define ARK_TIME 300
 
 using namespace std::chrono_literals;
 
@@ -19,18 +19,16 @@ OnnxInferenceNode::OnnxInferenceNode()
   this->declare_parameter<std::string>("device_path", "/dev/video2");
   this->declare_parameter<int>("lost_max_frames", 15);
   this->declare_parameter<bool>("save_frames", false);
-  this->declare_parameter<std::string>("tracker_type", "KCF"); // "KCF" | "CSRT" | "none"
   this->declare_parameter<bool>("enforce_bgr8", true);
   this->declare_parameter<std::string>("thirds_target_", "center");
-  this->declare_parameter<bool>("draw_thirds_overlay", true);
+  this->declare_parameter<bool>("preprocess_enable", true);
   
   device_path       = this->get_parameter("device_path").as_string();
   lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
   save_frames_      = this->get_parameter("save_frames").as_bool();
-  tracker_type_     = this->get_parameter("tracker_type").as_string();
   enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
   thirds_target_     = parseThirdsTarget(this->get_parameter("thirds_target_").as_string());
-  draw_thirds_overlay_ = this->get_parameter("draw_thirds_overlay").as_bool();  
+  preproc_enable_ = this->get_parameter("preprocess_enable").as_bool();  
   // ----- Publisher for servo setpoints -----
   rclcpp::QoS qos(10);
   qos.reliable().durability_volatile(); // stream; don"t latch servo commands
@@ -100,7 +98,7 @@ void onnx_inference::OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat&
                                                                   double target_x,
                                                                   const std::string& name_prefix)
 {
-  if (!(this->save_frames_ && this->draw_thirds_overlay_)) return;
+  if (!this->save_frames_) return;
   cv::Mat vis = frame.clone();
   const int H = vis.rows;
   // draw thirds grid + target marker
@@ -123,74 +121,80 @@ void OnnxInferenceNode::callbackInference()
   RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
 
   // Prepare tracker runtime
-int frame_id = 0;
+  int frame_id = 0;
   cv::Mat frame;
   
   while (rclcpp::ok() && cap_.read(frame)) {
     if (frame.empty()) continue;
     const cv::Size imsz = frame.size();
+    
+    if (enforce_bgr8_){
+      cv::Mat frame = to_bgr8(frame, enforce_bgr8_);
+    }
+    cv::Mat frame_ = frame;
+    if (preproc_enable_) {
+      applyGlobalPreproc(frame, gamma_all, clahe_all, sharp_all, frame_);
+          }
+    // YOLO until target appears
+    cv::Mat inputImage = yolo_->preprocess(frame_, YOLO_INPUT_H, YOLO_INPUT_W);
+    std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
+    std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
 
-    {
-// YOLO until target appears
-      cv::Mat inputImage = yolo_->preprocess(frame, YOLO_INPUT_H, YOLO_INPUT_W);
-      std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
-      std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
+    /*SORT_INTEGRATION_START*/
+    // Convert YOLO results -> sort::Detection
+    std::vector<sort::Detection> dets;
+    dets.reserve(results.size());
+    for (const auto& r : results) {
+      cv::Rect2f b((float)std::min(r.x1, r.x2),
+                  (float)std::min(r.y1, r.y2),
+                  (float)std::max(1, std::abs(r.x2 - r.x1)),
+                  (float)std::max(1, std::abs(r.y2 - r.y1)));
+      // Use available fields: 'accuracy' (score) and 'obj_id' (class id)
+      dets.push_back(sort::Detection{b, r.accuracy, r.obj_id});
+    }
+    // Update SORT and fetch tracks
+    static sort::SortTracker g_sorter;
+    auto tracks = g_sorter.update(dets);
 
-      /*SORT_INTEGRATION_START*/
-// Convert YOLO results -> sort::Detection
-std::vector<sort::Detection> dets;
-dets.reserve(results.size());
-for (const auto& r : results) {
-  cv::Rect2f b((float)std::min(r.x1, r.x2),
-               (float)std::min(r.y1, r.y2),
-               (float)std::max(1, std::abs(r.x2 - r.x1)),
-               (float)std::max(1, std::abs(r.y2 - r.y1)));
-  // Use available fields: 'accuracy' (score) and 'obj_id' (class id)
-  dets.push_back(sort::Detection{b, r.accuracy, r.obj_id});
-}
-// Update SORT and fetch tracks
-static sort::SortTracker g_sorter;
-auto tracks = g_sorter.update(dets);
-(void)tracks; // currently not used for downstream logic here
-/*SORT_INTEGRATION_END*/
-std::optional<Result> picked;
-      int best_area = -1;
-      for (const auto& r : results) {
-        int w = std::abs(r.x2 - r.x1);
-        int h = std::abs(r.y2 - r.y1);
-        int area = w * h;
-        if (area > best_area) { best_area = area; picked = r; }
-      }
-      if (!picked) { ++frame_id; continue; }
+    (void)tracks; // currently not used for downstream logic here
+    /*SORT_INTEGRATION_END*/
+    std::optional<Result> picked;
+    int best_area = -1;
+    for (const auto& r : results) {
+      int w = std::abs(r.x2 - r.x1);
+      int h = std::abs(r.y2 - r.y1);
+      int area = w * h;
+      if (area > best_area) { best_area = area; picked = r; }
+    }
+    if (!picked) { ++frame_id; continue; }
 
-      // bbox sanity
-      cv::Rect2d box(
-        std::min(picked->x1, picked->x2),
-        std::min(picked->y1, picked->y2),
-        std::max(1, std::abs(picked->x2 - picked->x1)),
-        std::max(1, std::abs(picked->y2 - picked->y1))
-      );
-      box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
-      if (box.area() <= 1.f) { ++frame_id; continue; }
-      const int W = frame.cols, H = frame.rows;
-      const cv::Rect2d roi_img =
-          unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
-      const double cx = roi_img.x + 0.5 * roi_img.width;
-      double target_x = thirdsX(W, thirds_target_, cx);
-      const double e_px = target_x - cx;
-      // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
-      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
-      double servo = 90.0 + yaw_deg;
-      servo_deg_ = std::clamp(servo, 0.0, 180.0);
+    // bbox sanity
+    cv::Rect2d box(
+      std::min(picked->x1, picked->x2),
+      std::min(picked->y1, picked->y2),
+      std::max(1, std::abs(picked->x2 - picked->x1)),
+      std::max(1, std::abs(picked->y2 - picked->y1))
+    );
+    box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
+    if (box.area() <= 1.f) { ++frame_id; continue; }
+    const int W = frame_.cols, H = frame_.rows;
+    const cv::Rect2d roi_img =
+        unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
+    const double cx = roi_img.x + 0.5 * roi_img.width;
+    double target_x = thirdsX(W, thirds_target_, cx);
+    const double e_px = target_x - cx;
+    // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
+    const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
+    double servo = 90.0 + yaw_deg;
+    servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
-      //RCLCPP_INFO(this->get_logger(),
-      //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
-      //W, cx, target_x, e_px, yaw_deg, servo_deg_);
+    //RCLCPP_INFO(this->get_logger(),
+    //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
+    //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
-      publishState(static_cast<float>(servo_deg_));
-      saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "detect_thirds_");
-}
-}
+    publishState(static_cast<float>(servo_deg_));
+    saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "detect_thirds_");
+  }
 }
 
 void OnnxInferenceNode::publishState(double deg)

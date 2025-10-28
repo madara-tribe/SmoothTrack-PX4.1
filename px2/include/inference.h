@@ -22,9 +22,10 @@
 // Root of your package on disk. Adjust if different.
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
-#include "yolo_inference.h"  // declares Result and YoloDetect
-#include "sort_tracker.h" // replaced OpenCV tracker with SORT
+#include "yolo_inference.h"
+#include "sort_tracker.h" 
 #include "composition_tool.h"
+#include "utils.h"
 
 // Exact pixel->yaw mapping: theta = atan( 2*tan(HFOV/2) * (dx/W) )
 static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hfov_deg)
@@ -91,10 +92,9 @@ private:
   // ===== Tracking / control params =====
   int    lost_max_frames_ = 15;
   bool   save_frames_ = false;
-  std::string tracker_type_ = "KCF";   // "KCF" | "CSRT" | "none"
   bool   enforce_bgr8_ = true;         // convert frames to CV_8UC3 for tracker
   ThirdsTarget thirds_target_ = ::ThirdsTarget::CENTER;
-  bool draw_thirds_overlay_{true};
+  bool preproc_enable_{false};
   // ===== Main pipeline (DETECT ↔ TRACK) =====
   void callbackInference();
   bool wait_for_ack_ms(int timeout_ms);

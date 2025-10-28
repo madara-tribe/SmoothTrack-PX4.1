@@ -143,6 +143,14 @@ private:
     }
 
     void init_kf_(Track& t, const cv::Rect2f& box, float dt=1.f) {
+        /**
+        @brief
+        Initialize the Kalman filter for a newly created track.
+        @details Creates the 8D state [cx, cy, w, h, vx, vy, vw, vh] and 
+        sets the transition/measurement/noise covariances. The initial state is taken from the 
+        first measurement (bbox); timing to call is when a track exists but its KF has not 
+        been initialized yet.
+        **/
         t.kf = cv::KalmanFilter(8,4,0, CV_32F);
         t.kf.transitionMatrix = (cv::Mat_<float>(8,8) <<
             1,0,0,0, dt,0, 0,0,
@@ -170,6 +178,13 @@ private:
     }
 
     cv::Rect2f predict_box_(Track& t) {
+        /**
+        @brief Propagate the track state one step forward (KF predict) and return the predicted box.
+        @details Runs kf.predict() to obtain the a priori (predicted) state for this frame 
+        and converts it back to a rectangle in image coordinates. The predicted box is used 
+        as the reference for association (IoU gating) against detections.
+        @note Call order in a frame: predict → associate → correct.
+        **/
         cv::Mat pred = t.kf.predict();
         float cx=pred.at<float>(0), cy=pred.at<float>(1);
         float w =pred.at<float>(2), h =pred.at<float>(3);
@@ -177,6 +192,12 @@ private:
     }
 
     void correct_with_(Track& t, const cv::Rect2f& z) {
+        /**
+        @brief Update the predicted state with a matched detection (KF correct/update).
+        @details
+        Converts the detection bbox to a measurement [cx, cy, w, h] and applies kf.correct(measurement).
+         This pulls the track back to the observed position
+        **/
         if (!t.kf_initialized) init_kf_(t, z);
         float cx,cy,w,h; rect_to_cxcywh(z,cx,cy,w,h);
         t.meas.at<float>(0)=cx; t.meas.at<float>(1)=cy;
