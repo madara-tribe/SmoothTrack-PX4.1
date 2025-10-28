@@ -166,34 +166,78 @@ void OnnxInferenceNode::callbackInference()
       int area = w * h;
       if (area > best_area) { best_area = area; picked = r; }
     }
-    if (!picked) { ++frame_id; continue; }
+    if (picked) {
+      // bbox sanity
+      cv::Rect2d box(
+        std::min(picked->x1, picked->x2),
+        std::min(picked->y1, picked->y2),
+        std::max(1, std::abs(picked->x2 - picked->x1)),
+        std::max(1, std::abs(picked->y2 - picked->y1))
+      );
+      box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
+      if (box.area() <= 1.f) { ++frame_id; continue; }
+      const int W = frame_.cols, H = frame_.rows;
+      const cv::Rect2d roi_img =
+          unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
+      const double cx = roi_img.x + 0.5 * roi_img.width;
+      double target_x = thirdsX(W, thirds_target_, cx);
+      const double e_px = target_x - cx;
+      // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
+      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
+      double servo = 90.0 + yaw_deg;
+      servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
-    // bbox sanity
-    cv::Rect2d box(
-      std::min(picked->x1, picked->x2),
-      std::min(picked->y1, picked->y2),
-      std::max(1, std::abs(picked->x2 - picked->x1)),
-      std::max(1, std::abs(picked->y2 - picked->y1))
-    );
-    box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
-    if (box.area() <= 1.f) { ++frame_id; continue; }
-    const int W = frame_.cols, H = frame_.rows;
-    const cv::Rect2d roi_img =
-        unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
-    const double cx = roi_img.x + 0.5 * roi_img.width;
-    double target_x = thirdsX(W, thirds_target_, cx);
-    const double e_px = target_x - cx;
-    // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
-    const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
-    double servo = 90.0 + yaw_deg;
-    servo_deg_ = std::clamp(servo, 0.0, 180.0);
+      //RCLCPP_INFO(this->get_logger(),
+      //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
+      //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
-    //RCLCPP_INFO(this->get_logger(),
-    //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
-    //W, cx, target_x, e_px, yaw_deg, servo_deg_);
+      publishState(static_cast<float>(servo_deg_));
+      saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "detect_thirds_");
+    } else {
+      // 1) Take the best predicted track from SORT
+      const auto& all = g_sorter.all_tracks(); // contains predicted boxes (KF.predict() already ran in update)
+      const sort::Track* best = nullptr;
 
-    publishState(static_cast<float>(servo_deg_));
-    saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "detect_thirds_");
+      // Heuristic: prefer high 'hits' (well-established), then smaller 'time_since_update' (recent)
+      for (const auto& t : all) {
+        if (!best ||
+            t.hits > best->hits ||
+            (t.hits == best->hits && t.time_since_update < best->time_since_update)) {
+          best = &t;
+        }
+      }
+
+      // Gate: only trust predictions that are not too stale
+      constexpr int AGE_GATE = 5; // allow up to 5 frames without detection
+      if (best && best->time_since_update <= AGE_GATE) {
+        // 2) Use the predicted box for control (same coord system as YOLO input)
+        cv::Rect2d pred_box = best->box;
+        const int W = frame_.cols, H = frame_.rows;
+
+        // If your pipeline uses letterbox undo, apply it to the predicted box too
+        cv::Rect2d roi_img = unletterboxRect2d(pred_box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
+        roi_img &= cv::Rect2d(0, 0, W, H);
+
+        if (roi_img.area() > 1.0) {
+          // 3) Compute servo command exactly like when you have a detection
+          const double cx = roi_img.x + 0.5 * roi_img.width;
+          const double target_x = thirdsX(W, thirds_target_, cx);
+          const double e_px = target_x - cx;
+          const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
+          servo_deg_ = std::clamp(90.0 + yaw_deg, 0.0, 180.0);
+
+          publishState(static_cast<float>(servo_deg_));
+          // Optional: overlay to visualize prediction usage
+          saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "pred_thirds_");
+
+          ++frame_id;
+          continue;  // handled this frame via prediction → next frame
+        }
+      }
+      // If even prediction is unusable, just skip controlling this frame.
+      ++frame_id;
+      continue;  
+    } 
   }
 }
 
