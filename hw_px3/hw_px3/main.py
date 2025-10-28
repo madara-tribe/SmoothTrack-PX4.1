@@ -20,11 +20,9 @@ class AngleForwarder(Node):
 
         # --- Parameters (updated defaults) ---
         self.declare_parameter("serial_port", "/dev/ttyACM0")
-        self.declare_parameter("baud", 9600)          # <- 115200bps
         self.declare_parameter("center_deg", 90)
 
         port = self.get_parameter("serial_port").get_parameter_value().string_value
-        baud = int(self.get_parameter("baud").get_parameter_value().integer_value)
         self.center_deg = float(self.get_parameter("center_deg").get_parameter_value().double_value)
 
         self.board = telemetrix.Telemetrix(com_port=port)
@@ -35,7 +33,7 @@ class AngleForwarder(Node):
             self.board.servo_write(SERVO_PIN, int(self.center_deg))
         except (RuntimeError, OSError) as e:
             pass
-        self.get_logger().info(f'px3: opened serial {port} @ {baud}; centered to {self.center_deg:.1f}°')
+        self.get_logger().info(f'px3: opened serial {port}; centered to {self.center_deg:.1f}°')
 
         # --- Publish px3_ready (latched) ---
         ready_qos = QoSProfile(
@@ -55,11 +53,13 @@ class AngleForwarder(Node):
         self.subscription = self.create_subscription(AbsResult, "inference", self._on_angle, 10)
    
     def _on_angle(self, msg: AbsResult):
-        #self.board.servo_write(SERVO_PIN, (180 - int(msg.x_angle)))
-        self.board.servo_write(SERVO_PIN, int(msg.x_angle))
-        time.sleep(ARK_TIME)
-        # immediate ACK (or add a short sleep if you prefer to wait for motion)
-        self.ack_pub.publish(Bool(data=True))
+        try:
+            #self.board.servo_write(SERVO_PIN, (180 - int(msg.x_angle)))
+            self.board.servo_write(SERVO_PIN, int(msg.x_angle))
+        finally:
+            time.sleep(ARK_TIME)
+            # immediate ACK (or add a short sleep if you prefer to wait for motion)
+            self.ack_pub.publish(Bool(data=True))
 
     def destroy_node(self):
         try:

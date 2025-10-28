@@ -56,7 +56,7 @@ std::vector<Result> YoloDetect::postprocess(cv::Size originalImageSize, std::vec
            y1 = ((y1 - pad_size_y) / model_height_after_padding) * originalImageSize.height ;
            y2 = ((y2 - pad_size_y) / model_height_after_padding) * originalImageSize.height ;
            cv::Rect clipped = clipBox(x1, y1, x2, y2, originalImageSize.width, originalImageSize.height);
-	   std::cout << "Class Name: " << classNames.at(classPrediction) << std::endl;
+	       std::cout << "Class Name: " << classNames.at(classPrediction) << std::endl;
            std::cout << "Coords: Top Left (" << clipped.x << ", " << clipped.x + clipped.width << "), Bottom Right (" << clipped.y << ", " << clipped.y + clipped.height << ")" << std::endl;
            std::cout << "Accuracy: " << accuracy << std::endl;
 

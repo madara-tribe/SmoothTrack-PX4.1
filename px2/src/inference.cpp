@@ -1,5 +1,4 @@
 #include "inference.h"
-#include "sort_tracker.h"
 
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
@@ -9,6 +8,7 @@
 #define ARK_TIME 300
 
 using namespace std::chrono_literals;
+static sort::SortTracker g_sorter;
 
 namespace onnx_inference
 {
@@ -107,7 +107,7 @@ void onnx_inference::OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat&
   // draw ROI
   cv::rectangle(vis, roi_img, {0,255,0}, 2);
   // save
-  const std::string out = this->pkg_path + "/data/" + name_prefix
+  const std::string out = this->pkg_path + "data/" + name_prefix
                         + std::to_string(frame_id) + ".png";
   cv::imwrite(out, vis);
 }
@@ -128,15 +128,14 @@ void OnnxInferenceNode::callbackInference()
     if (frame.empty()) continue;
     const cv::Size imsz = frame.size();
     
-    if (enforce_bgr8_){
-      cv::Mat frame = to_bgr8(frame, enforce_bgr8_);
-    }
-    cv::Mat frame_ = frame;
+    //if (enforce_bgr8_){
+    //  cv::Mat frame = to_bgr8(frame, enforce_bgr8_);}
+    //cv::Mat frame_ = frame;
     if (preproc_enable_) {
-      applyGlobalPreproc(frame, gamma_all, clahe_all, sharp_all, frame_);
-          }
+      applyGlobalPreproc(frame, gamma_all, clahe_all, sharp_all, frame);
+    }
     // YOLO until target appears
-    cv::Mat inputImage = yolo_->preprocess(frame_, YOLO_INPUT_H, YOLO_INPUT_W);
+    cv::Mat inputImage = yolo_->preprocess(frame, YOLO_INPUT_H, YOLO_INPUT_W);
     std::vector<Ort::Value> outputTensors = yolo_->RunInference(inputImage);
     std::vector<Result> results = yolo_->postprocess(imsz, outputTensors);
 
@@ -153,7 +152,6 @@ void OnnxInferenceNode::callbackInference()
       dets.push_back(sort::Detection{b, r.accuracy, r.obj_id});
     }
     // Update SORT and fetch tracks
-    static sort::SortTracker g_sorter;
     auto tracks = g_sorter.update(dets);
 
     (void)tracks; // currently not used for downstream logic here
@@ -166,7 +164,8 @@ void OnnxInferenceNode::callbackInference()
       int area = w * h;
       if (area > best_area) { best_area = area; picked = r; }
     }
-    if (picked) {
+    
+    if (picked){
       // bbox sanity
       cv::Rect2d box(
         std::min(picked->x1, picked->x2),
@@ -176,7 +175,7 @@ void OnnxInferenceNode::callbackInference()
       );
       box &= cv::Rect2d(0, 0, (float)YOLO_INPUT_W, (float)YOLO_INPUT_H);
       if (box.area() <= 1.f) { ++frame_id; continue; }
-      const int W = frame_.cols, H = frame_.rows;
+      const int W = frame.cols, H = frame.rows;
       const cv::Rect2d roi_img =
           unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
       const double cx = roi_img.x + 0.5 * roi_img.width;
@@ -192,7 +191,7 @@ void OnnxInferenceNode::callbackInference()
       //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
       publishState(static_cast<float>(servo_deg_));
-      saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "detect_thirds_");
+      saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "detect_thirds_"); 
     } else {
       // 1) Take the best predicted track from SORT
       const auto& all = g_sorter.all_tracks(); // contains predicted boxes (KF.predict() already ran in update)
@@ -212,7 +211,7 @@ void OnnxInferenceNode::callbackInference()
       if (best && best->time_since_update <= AGE_GATE) {
         // 2) Use the predicted box for control (same coord system as YOLO input)
         cv::Rect2d pred_box = best->box;
-        const int W = frame_.cols, H = frame_.rows;
+        const int W = frame.cols, H = frame.rows;
 
         // If your pipeline uses letterbox undo, apply it to the predicted box too
         cv::Rect2d roi_img = unletterboxRect2d(pred_box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
@@ -228,17 +227,12 @@ void OnnxInferenceNode::callbackInference()
 
           publishState(static_cast<float>(servo_deg_));
           // Optional: overlay to visualize prediction usage
-          saveThirdsOverlayIfNeeded(frame_, roi_img, frame_id, target_x, "pred_thirds_");
-
-          ++frame_id;
-          continue;  // handled this frame via prediction → next frame
+          saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "pred_thirds_");
         }
       }
-      // If even prediction is unusable, just skip controlling this frame.
-      ++frame_id;
-      continue;  
-    } 
-  }
+    }
+    ++frame_id; 
+  } 
 }
 
 void OnnxInferenceNode::publishState(double deg)

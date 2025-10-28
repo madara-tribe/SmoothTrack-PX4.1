@@ -8,14 +8,10 @@
 #include <cmath>  // std::lround, std::abs
 #include <std_msgs/msg/bool.hpp>
 #include <mutex>
-#include <condition_variable>
-#include <optional>
 #include <algorithm>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
-
 #include "rclcpp/rclcpp.hpp"
 #include "custom_msgs/msg/abs_result.hpp"
 

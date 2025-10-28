@@ -28,7 +28,6 @@ def generate_launch_description():
 
     # -------- px3 (serial) arguments --------
     arg_serial   = DeclareLaunchArgument("serial_port",     default_value="/dev/ttyACM0")
-    arg_baud     = DeclareLaunchArgument("baud",            default_value="9600")
     arg_center_deg   = DeclareLaunchArgument("center_deg",         default_value="90.0",  description="Servo center (deg).")
 
     # -------- px3 node: opens serial, writes 90°, publishes px3_ready (latched) --------
@@ -40,7 +39,6 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[{
             "serial_port":     LaunchConfiguration("serial_port"),
-            "baud":            ParameterValue(LaunchConfiguration("baud"), value_type=int),
             "center_deg":               ParameterValue(LaunchConfiguration("center_deg"), value_type=float),
         }]
     )
@@ -74,7 +72,7 @@ def generate_launch_description():
         arg_camera, arg_lost, arg_save, arg_bgr8, arg_thirds, arg_prepro_use,
 
         # px3 args
-        arg_serial, arg_baud, arg_center_deg,
+        arg_serial, arg_center_deg,
        
         # nodes
         px3_node, px2_node
