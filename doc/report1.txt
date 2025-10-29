@@ -1,21 +1,24 @@
-### skills (2025/10/23)
-
 # used tec
 
 ## 制御ロジック／追従（Control）
 ・[角度クランプ] — 指令角を機械範囲（min–max）に収め安全性を担保。
-
-・[状態機械（FSM）] — DETECT→TRACK↔CENTERED／LOST→SEEK といった明確な遷移で挙動を安定化。
 
 ・幾何・座標変換（Geometry）
 [deg/px 変換（FOV幾何）] — deg_per_px = HFOV / 画素幅 で誤差pxを角度に換算。
 
 ・[レターボックス補正] — 推論のパディング座標を元画像座標へ戻して正確に制御。
 
-## 画像処理・トラッキング（Vision）
-・[BBox中心計算] — (x1+x2)/2, (y1+y2)/2 で被写体中心を算出。
+・[三分割(×3)構図ターゲット] – LEFT/CENTER/RIGHT/AUTO の目標xを決め、pixel→yaw→servo に変換。フレーミングの意図に合わせて制御誤差を定義。 Rule‑of‑Thirds (Composition) Target
 
-・[トラッカー併用（YOLO＋CSRT/KCF）] — 検出の合間を短期トラッカーで補完して中心安定。
+﻿
+・﻿ [Rect2d統一] – OpenCVのトラッカAPI（CSRT/KCF）は Rect2d 前提。座標型を Rect2d に統一し、演算子（&= など）の型不一致と丸め誤差を防ぐ。画像サイズで必ずクリップし、w,h≥2 を保証。
+
+## 画像処理・トラッキング（Vision）
+・[track‑by‑detectionゲート(再アンカー)] – TRACK中もNフレームごとに検出を走らせ、IoUや中心距離でトラッカ結果を検証・再アンカー。ドリフトや誤追尾を低減。
+
+・[前処理] – ROI（推奨）または全体に、ガンマ補正＋CLAHE(Lチャンネル)＋アンシャープを適用してコントラスト/ディテールを強調
+
+・[線形補間] – 欠損時は1ステップ線形予測（直近速度）でつなぎ、因果ガウシアン移動平均で滑らかさを確保。window/σ/max_gap で調整。
 
 ## ハードウェア／シリアル（HW/Serial）
 ・[Telemetrix/Telemetrix4Arduino] — Arduino 側に汎用I/Oサーバ、ホストは Telemetrix で servo_write。
@@ -25,11 +28,11 @@
 ・[サーボ端点キャリブレーション] — µs 幅を実測で最適化し 0–180°へ安全マップ。
 clamp 処理
 
-・工学的処理でdeeptrackPX4でもやった。
+=>工学的処理でdeeptrackPX4でも実装。
 
 # ROS 2／実装アーキテクチャ（ROS/Arch）
 
-・[MultiThreadedExecutor(4)] — 待機スレッドとコールバックを並列化しデッドロック回避（Jetson Nano の4論理コア想定）。
+・[MultiThreadedExecutor(4)] — 待機スレッドとコールバックを並列化しデッドロック回避
 
 ・[ACKハンドシェイク] — /inference 発行後に /px3_ack を待つロックステップ（早着即時復帰＋上限タイムアウト）。lock_guardの並列処理
 
@@ -41,8 +44,6 @@ clamp 処理
 ・[スルーレート制限] — 角度の最大変化速度（°/s）を制限し、急峻な指令での振動や見失いを防ぐ。
 
 ・[加速度制限] — 角速度の変化（°/s²）を抑え、起動・停止を滑らかにする。
-
-・[最終段ローパス（EMA）] — 角度指令に指数移動平均を掛けて最終的な滑らかさを確保。
 
 ・[バンバン制御] — 誤差の符号で「左/停止/右」の三値だけを出す簡易安定制御。
 参考medium  ：https://medium.com/@bramburggraaf/real-time-object-tracking-with-python-yolov5-and-arduino-servo-control-follow-person-or-pet-ef0da07849d8
@@ -57,17 +58,18 @@ clamp 処理
 
 ・[増分制御] — servo <- servo + step の形で小刻みに更新（上限付き）。飽和時の張り付き回避にも有効。
 
+・[トラッカー併用（YOLO＋CSRT/KCF/MOSSE）] — 検出の合間を短期トラッカーで補完して中心安定。
+https://broutonlab.com/blog/opencv-object-tracking/
+
+・[状態機械（FSM）] — DETECT→TRACK↔CENTERED／LOST→SEEK といった明確な遷移で挙動を安定化。
+
 # candidate for use
 
 ・[先読み制御（遅延補償）] — 誤差の変化傾向から先を外挿して追従遅れを補う。
 
 ・[デッドバンド] — 中心近傍の小誤差（±px/±deg）を無視してサーボのハンチングを抑える。
 
-・[二段階ゲイン（ACQUIRE→TRACK）] — 初期は高ゲインで素早くセンタリング→安定後は低ゲイン。
-
 ・[背景差分] — 動体抽出の前処理強化（MOG2/KNN）。
-
-・[構図グリッド] — 3×3 の任意交点をセットポイントにして中央以外の構図にも対応。
 
 ・[ジッター平滑] — 検出中心に EMA 等を適用してノイズ由来の揺れを抑える。
 
@@ -79,9 +81,9 @@ clamp 処理
 
 ・[coast＋スイープ探索] — 見失い時は慣性的に小パルス継続→それでもダメなら左右スイープで再捕捉。
 
-・[線形補間] — 欠損フレームを直線でつなぎ自然に接続。
+・[GSI（二側平滑/補間）] – 未来側も使う非因果の後処理/固定ラグ平滑。欠損を前後の有効点で真の補間。リアルタイム制御より品質重視の仕上げ用（GGSを補完）
 
-・[GPR/GSI] — ガウス過程回帰や補間＋平滑の複合で高品質な軌跡推定。
+・[ブラーゲート(Laplacian分散)] – ROIのラプラシアン分散が閾値未満（＝ブレ/ボケ）なら update() を**スキップ（ホールド）**し、学習劣化と破綻を防ぐ。
 
 # untouched
 
