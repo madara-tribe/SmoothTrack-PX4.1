@@ -1,0 +1,9 @@
+[Unit]
+Description=Setup Logitech Brio 100 format (%I)
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/v4l2-ctl -d /dev/%I --set-fmt-video=width=1920,height=1080,pixelformat=MJPG
+ExecStart=/usr/bin/v4l2-ctl -d /dev/%I --set-parm=30
+

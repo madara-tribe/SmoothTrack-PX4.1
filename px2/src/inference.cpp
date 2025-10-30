@@ -3,8 +3,8 @@
 #define ONNX_YOLO_PATH "/weights/yolov7Tiny_640_640.onnx"
 #define YOLO_INPUT_H 640
 #define YOLO_INPUT_W 640
-#define IMG_WIDTH 960
-#define IMG_HEIGHT 540
+#define IMG_WIDTH 1920
+#define IMG_HEIGHT 1080
 #define ARK_TIME 300
 
 using namespace std::chrono_literals;
@@ -101,10 +101,9 @@ void OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat& frame,
 {
   if (!this->save_frames_) return;
   cv::Mat vis = frame.clone();
-  const int H = vis.rows;
   // draw thirds grid + target marker
   drawThirdsOverlay(vis, /*grid*/ {0,255,255}, /*mark*/ {0,0,255},
-                    static_cast<int>(std::lround(target_x)), H/2);
+                    static_cast<int>(std::lround(target_x)), IMG_HEIGHT/2);
   cv::rectangle(vis, roi_img, {0,255,0}, 2);
   const std::string out = this->pkg_path + "data/" + name_prefix
                         + std::to_string(frame_id) + ".png";
@@ -170,14 +169,12 @@ void OnnxInferenceNode::callbackInference()
         std::max(1, std::abs(picked->y2 - picked->y1))
       );
       if (box.area() <= 1.f) { ++frame_id; continue; }
-      const int W = frame.cols, H = frame.rows;
-      const cv::Rect2d roi_img =
-          unletterboxRect2d(box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
-      const double cx = roi_img.x + 0.5 * roi_img.width;
-      double target_x = thirdsX(W, thirds_target_, cx);
+      
+      const double cx = box.x + 0.5 * box.width;
+      double target_x = thirdsX(IMG_WIDTH, thirds_target_, cx);
       const double e_px = target_x - cx;
       // 3) Convert to yaw (deg), then map to servo angle (0..180; 90 = forward)
-      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
+      const double yaw_deg = pixelErrorToYawDeg(e_px, (double)IMG_WIDTH, hfov_deg);
       double servo = 90.0 + yaw_deg;
       servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
@@ -186,7 +183,7 @@ void OnnxInferenceNode::callbackInference()
       //W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
       publishState(static_cast<float>(servo_deg_));
-      saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "detect_thirds_"); 
+      saveThirdsOverlayIfNeeded(frame, box, frame_id, target_x, "detect_thirds_"); 
     } else {
       // 1) Take the best predicted track from SORT
       const auto& all = g_sorter.all_tracks(); // contains predicted boxes (KF.predict() already ran in update)
@@ -204,17 +201,15 @@ void OnnxInferenceNode::callbackInference()
       // Gate: only trust predictions that are not too stale
       if (best && best->time_since_update <= AGE_GATE) {
         cv::Rect2d pred_box = best->box;
-        const int W = frame.cols, H = frame.rows;
-        cv::Rect2d roi_img = unletterboxRect2d(pred_box, W, H, YOLO_INPUT_W, YOLO_INPUT_H);
-        if (roi_img.area() > 1.0) {
-          const double cx = roi_img.x + 0.5 * roi_img.width;
-          const double target_x = thirdsX(W, thirds_target_, cx);
+        if (pred_box.area() > 1.0) {
+          const double cx = pred_box.x + 0.5 * pred_box.width;
+          const double target_x = thirdsX(IMG_WIDTH, thirds_target_, cx);
           const double e_px = target_x - cx;
-          const double yaw_deg = pixelErrorToYawDeg(e_px, (double)W, hfov_deg);
+          const double yaw_deg = pixelErrorToYawDeg(e_px, (double)IMG_WIDTH, hfov_deg);
           servo_deg_ = std::clamp(90.0 + yaw_deg, 0.0, 180.0);
 
           publishState(static_cast<float>(servo_deg_));
-          saveThirdsOverlayIfNeeded(frame, roi_img, frame_id, target_x, "pred_thirds_");
+          saveThirdsOverlayIfNeeded(frame, pred_box, frame_id, target_x, "pred_thirds_");
         }
       }
     }

@@ -7,20 +7,27 @@ sudo usermod -aG dialout hagi
 ### USB CAMERA
 udevadm info --name=/dev/video2 --attribute-walk
 
-
+# when to set up
 sudo usermod -aG dialout hagi
-sudo cp 99-realsense-libusb.rules /etc/udev/rules.d/
+sudo cp 99-brio100.rules /etc/udev/rules.d/
+sudo cp brio100-setup@.service /etc/systemd/system/
 sudo udevadm control --reload-rules
-sudo udevadm trigger
+sudo systemctl daemon-reload
+## re-trigger only video4linux; or unplug/plug camera
+sudo udevadm trigger --subsystem-match=video4linux
 
-### when uninstall
-sudo rm /etc/udev/rules.d/99-realsense-libusb.rules
-sudo rm /etc/udev/rules.d/99-arduino.rules
-sudo udevadm control --reload-rules 
-sudo udevadm trigger
+## verify: symlink should exist and point to the capture node
+ls -l /dev/video/brio100
+## test
+v4l2-ctl -d /dev/video/brio100 --get-fmt-video
 
-sudo usermod -aG dialout hagi
-sudo cp 99-realsense-libusb.rules /etc/udev/rules.d/
+
+### when reset
+sudo rm -f /etc/udev/rules.d/99-brio100.rules
+sudo rm -f /etc/systemd/system/brio100-setup@.service
 sudo udevadm control --reload-rules
-sudo udevadm trigger
+sudo systemctl daemon-reload
+sudo udevadm trigger --subsystem-match=video4linux
+## remove symlink if any
+sudo rm -f /dev/video/brio100
 

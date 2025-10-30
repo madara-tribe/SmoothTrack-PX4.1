@@ -32,26 +32,6 @@ static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hf
     return yaw_rad * 180.0 / PI;
 }
 
-// Undo letterbox padding from NET (netW x netH) back to RAW (imgW x imgH)
-static inline cv::Rect2d unletterboxRect2d(const cv::Rect2d& r_net,
-                                         int imgW, int imgH,
-                                         int netW, int netH)
-{
-    const float s    = std::min(netW / float(imgW), netH / float(imgH));
-    const int   newW = int(std::round(imgW * s));
-    const int   newH = int(std::round(imgH * s));
-    const float padX = (netW - newW) * 0.5f;
-    const float padY = (netH - newH) * 0.5f;
-
-    cv::Rect2d r;
-    r.x      = (r_net.x - padX) / s;
-    r.y      = (r_net.y - padY) / s;
-    r.width  =  r_net.width  / s;
-    r.height =  r_net.height / s;
-    r &= cv::Rect2d(0,0,(float)imgW,(float)imgH);
-    return r;
-}
-
 
 namespace onnx_inference
 {

@@ -1,9 +1,13 @@
 # bin/bash
-CAMERA_DEV="/dev/video2"
+BRIO_DEV="/dev/video2"
 ARDUINO_DEV="/dev/ttyACM0"
 # Check if Arduino and CAM device exists
-if [ ! -e "$CAMERA_DEV" ]; then
-  echo "Error: $CAMERA_DEV not found on host."
+if [[ -z "${BRIO_DEV:-}" ]]; then
+  echo "ERROR: BRIO_DEV is empty. Set BRIO_DEV=/dev/video2 (or /dev/video/brio100) and retry."
+  exit 1
+fi
+if [[ ! -e "$BRIO_DEV" ]]; then
+  echo "ERROR: '$BRIO_DEV' not found on host. Check camera and device path."
   exit 1
 fi
 
@@ -18,7 +22,7 @@ docker run -it --rm \
   --privileged \
   --env="DISPLAY=$DISPLAY" \
   --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-  --device=/dev/video-cam:$CAMERA_DEV \
+  --device="${BRIO_DEV}:/dev/video/brio100" \
   --group-add video \
   -v /home/hagi/Downloads/place/:/ros2_ws \
   test:latest

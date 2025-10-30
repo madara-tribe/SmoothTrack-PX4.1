@@ -1,0 +1,7 @@
+# Logitech Brio 100 - capture node only (stable symlink + optional systemd hook)
+SUBSYSTEM=="video4linux", KERNEL=="video[0-9]*", \
+  ATTRS{idVendor}=="046d", ATTRS{idProduct}=="094c", \
+  ATTRS{product}=="Brio 100", ATTRS{serial}=="2538ZBG1R588", \
+  ENV{ID_V4L_CAPABILITIES}=="*:capture:*", \
+  SYMLINK+="video/brio100", GROUP="video", MODE="0660", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}="brio100-setup@%k.service"
