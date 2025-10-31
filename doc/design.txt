@@ -1,0 +1,24 @@
+- camera 720p width=640, height=480
+- arduino Uno
+- sg5010 servo
+- PC - ubuntu, ROS2 humble
+
+
+## px System Flow (Pan/Tilt Tracking)
+### Setup
+1. Start Docker and pass the host camera through to the container (e.g., map /dev/video*).
+2. Launch px2 (vision) and px3 (hardware) with the intended ROS 2 QoS profiles.
+### Initialization
+3. Center the servo(s): set each to 90° to define the origin (0 offset).
+### Tracking Loop (repeats every frame)
+4. Capture an image in px2 and run object detection.
+5. Extract the bounding box (bbox) of the target.
+6. Compute the pixel error: (bbox_center − image_center) for x (and y if 2-axis).
+7. Convert error → angle: map pixel error to yaw/pitch degrees (using HFOV/VFOV).
+8.Publish the target angle(s) from px2 → px3.
+### Actuation
+9. px3 receives the angle and sends the corresponding PWM command to the servo via Arduino/Telemetrix.
+10. Servo rotates to the commanded angle.
+### Continue
+11. Repeat the loop to maintain tracking (with your SORT fallback/ID-lock as needed).
+
