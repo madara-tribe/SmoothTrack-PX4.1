@@ -3,7 +3,7 @@ Advanced model of DeepTrack PX4.0
 
 
 # evaluation task
-・track human and clock by rotating servo togather 
+・track human/clock by rotating servo togather 
 
 ## result movie
 [result movie](https://youtube.com/shorts/-i5SWubERlU?si=PcM62HeS9MWCCkM1)
