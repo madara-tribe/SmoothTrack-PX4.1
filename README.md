@@ -10,7 +10,7 @@ Advanced model of DeepTrack PX4.0
 
 
 ## graph
-How close the image center is to the center of the bbox (how good tracking system can perform)
+How close the image center is to the center of the box (origin is 90 degree). how good tracking system can perform
 
 ![servo_scatter](https://github.com/user-attachments/assets/020ff820-ba2b-4cbc-bdf5-dd6872d90a44)
 
