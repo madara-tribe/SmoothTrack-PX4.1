@@ -11,11 +11,8 @@ using namespace std::chrono_literals;
 static sort::SortTracker g_sorter;
 constexpr int AGE_GATE = 5; // allow up to 5 frames without detection
 
-namespace onnx_inference
-{
-OnnxInferenceNode::OnnxInferenceNode()
-: Node("px2")
-{
+namespace onnx_inference {
+OnnxInferenceNode::OnnxInferenceNode() : Node("px2") {
   // ----- Params -----
   this->declare_parameter<std::string>("device_path", "/dev/video2");
   this->declare_parameter<int>("lost_max_frames", 15);
@@ -23,27 +20,28 @@ OnnxInferenceNode::OnnxInferenceNode()
   this->declare_parameter<bool>("enforce_bgr8", true);
   this->declare_parameter<std::string>("thirds_target_", "center");
   this->declare_parameter<bool>("preprocess_enable", true);
-  
-  device_path       = this->get_parameter("device_path").as_string();
-  lost_max_frames_  = this->get_parameter("lost_max_frames").as_int();
-  save_frames_      = this->get_parameter("save_frames").as_bool();
-  enforce_bgr8_     = this->get_parameter("enforce_bgr8").as_bool();
-  thirds_target_     = parseThirdsTarget(this->get_parameter("thirds_target_").as_string());
-  preproc_enable_ = this->get_parameter("preprocess_enable").as_bool();  
+
+  device_path = this->get_parameter("device_path").as_string();
+  lost_max_frames_ = this->get_parameter("lost_max_frames").as_int();
+  save_frames_ = this->get_parameter("save_frames").as_bool();
+  enforce_bgr8_ = this->get_parameter("enforce_bgr8").as_bool();
+  thirds_target_ = parseThirdsTarget(this->get_parameter("thirds_target_").as_string());
+  preproc_enable_ = this->get_parameter("preprocess_enable").as_bool();
   // ----- Publisher for servo setpoints -----
   rclcpp::QoS qos(10);
   qos.reliable().durability_volatile(); // stream; don"t latch servo commands
   pub_abs_ = this->create_publisher<custom_msgs::msg::AbsResult>("inference", qos);
-  
+
   // Create a reentrant group so ACK callback can run while we wait
   ack_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   rclcpp::SubscriptionOptions opts;
   opts.callback_group = ack_group_;
-  
+
   px3_ack_sub_ = this->create_subscription<std_msgs::msg::Bool>(
       "px3_ack", rclcpp::QoS(10),
       [this](std_msgs::msg::Bool::ConstSharedPtr m) {
-        if (!m->data) return;
+        if (!m->data)
+          return;
         {
           std::lock_guard<std::mutex> lk(ack_mtx_);
           ack_ready_ = true;
@@ -54,16 +52,15 @@ OnnxInferenceNode::OnnxInferenceNode()
 
   // ----- px3_ready (latched) -----
   rclcpp::QoS ready_qos(1);
-  ready_qos.reliable().transient_local();  // receive latched True
+  ready_qos.reliable().transient_local(); // receive latched True
   px3_ready_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "px3_ready", ready_qos,
-    [this](const std_msgs::msg::Bool::SharedPtr msg){
-      if (msg->data) {
-        px3_ready_ = true;
-        RCLCPP_INFO(this->get_logger(), "px2: received px3_ready=True");
-      }
-    });
-  
+      "px3_ready", ready_qos, [this](const std_msgs::msg::Bool::SharedPtr msg) {
+        if (msg->data) {
+          px3_ready_ = true;
+          RCLCPP_INFO(this->get_logger(), "px2: received px3_ready=True");
+        }
+      });
+
   // ----- Open camera -----
   RCLCPP_INFO(this->get_logger(), "Opening camera at: %s", device_path.c_str());
   cap_.open(device_path); // optionally: cap_.open(device_path, cv::CAP_V4L2);
@@ -84,49 +81,45 @@ OnnxInferenceNode::OnnxInferenceNode()
 }
 
 // Block until ACK or timeout
-bool OnnxInferenceNode::wait_for_ack_ms(int timeout_ms)
-{
+bool OnnxInferenceNode::wait_for_ack_ms(int timeout_ms) {
   std::unique_lock<std::mutex> lk(ack_mtx_);
   ack_ready_ = false;
-  return ack_cv_.wait_for(
-      lk, std::chrono::milliseconds(timeout_ms),
-      [this]{ return ack_ready_; });
+  return ack_cv_.wait_for(lk, std::chrono::milliseconds(timeout_ms), [this] { return ack_ready_; });
 }
 
-void OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat& frame,
-                                                                  const cv::Rect2d& roi_img,
-                                                                  int frame_id,
-                                                                  double target_x,
-                                                                  const std::string& name_prefix)
-{
-  if (!this->save_frames_) return;
+void OnnxInferenceNode::saveThirdsOverlayIfNeeded(const cv::Mat &frame, const cv::Rect2d &roi_img,
+                                                  int frame_id, double target_x,
+                                                  const std::string &name_prefix) {
+  if (!this->save_frames_)
+    return;
   cv::Mat vis = frame.clone();
   // draw thirds grid + target marker
-  drawThirdsOverlay(vis, /*grid*/ {0,255,255}, /*mark*/ {0,0,255},
-                    static_cast<int>(std::lround(target_x)), IMG_HEIGHT/2);
-  cv::rectangle(vis, roi_img, {0,255,0}, 2);
-  const std::string out = this->pkg_path + "data/" + name_prefix
-                        + std::to_string(frame_id) + ".png";
+  drawThirdsOverlay(vis, /*grid*/ {0, 255, 255}, /*mark*/ {0, 0, 255},
+                    static_cast<int>(std::lround(target_x)), IMG_HEIGHT / 2);
+  cv::rectangle(vis, roi_img, {0, 255, 0}, 2);
+  const std::string out =
+      this->pkg_path + "data/" + name_prefix + std::to_string(frame_id) + ".png";
   cv::imwrite(out, vis);
 }
 
-void OnnxInferenceNode::callbackInference()
-{
+void OnnxInferenceNode::callbackInference() {
   // ensure we start only once, and only after px3_ready flips us on
-  if (started_ || !px3_ready_) return;
+  if (started_ || !px3_ready_)
+    return;
   started_ = true;
-  
+
   RCLCPP_INFO(this->get_logger(), "[px2] Starting DETECT→TRACK pipeline.");
   int frame_id = 0;
   cv::Mat frame;
-  
+
   while (rclcpp::ok() && cap_.read(frame)) {
-    if (frame.empty()) continue;
+    if (frame.empty())
+      continue;
     const cv::Size imsz = frame.size();
-    
-    //if (enforce_bgr8_){
-    //  cv::Mat frame = to_bgr8(frame, enforce_bgr8_);}
-    //cv::Mat frame_ = frame;
+
+    // if (enforce_bgr8_){
+    //   cv::Mat frame = to_bgr8(frame, enforce_bgr8_);}
+    // cv::Mat frame_ = frame;
     if (preproc_enable_) {
       applyGlobalPreproc(frame, gamma_all, clahe_all, sharp_all, frame);
     }
@@ -138,11 +131,10 @@ void OnnxInferenceNode::callbackInference()
     /*SORT_INTEGRATION_START*/
     std::vector<sort::Detection> dets;
     dets.reserve(results.size());
-    for (const auto& r : results) {
-      cv::Rect2f b((float)std::min(r.x1, r.x2),
-                  (float)std::min(r.y1, r.y2),
-                  (float)std::max(1, std::abs(r.x2 - r.x1)),
-                  (float)std::max(1, std::abs(r.y2 - r.y1)));
+    for (const auto &r : results) {
+      cv::Rect2f b((float)std::min(r.x1, r.x2), (float)std::min(r.y1, r.y2),
+                   (float)std::max(1, std::abs(r.x2 - r.x1)),
+                   (float)std::max(1, std::abs(r.y2 - r.y1)));
       // Use available fields: 'accuracy' (score) and 'obj_id' (class id)
       dets.push_back(sort::Detection{b, r.accuracy, r.obj_id});
     }
@@ -153,23 +145,26 @@ void OnnxInferenceNode::callbackInference()
     /*SORT_INTEGRATION_END*/
     std::optional<Result> picked;
     int best_area = -1;
-    for (const auto& r : results) {
+    for (const auto &r : results) {
       int w = std::abs(r.x2 - r.x1);
       int h = std::abs(r.y2 - r.y1);
       int area = w * h;
-      if (area > best_area) { best_area = area; picked = r; }
+      if (area > best_area) {
+        best_area = area;
+        picked = r;
+      }
     }
-    
-    if (picked){
+
+    if (picked) {
       // bbox sanity
-      cv::Rect2d box(
-        std::min(picked->x1, picked->x2),
-        std::min(picked->y1, picked->y2),
-        std::max(1, std::abs(picked->x2 - picked->x1)),
-        std::max(1, std::abs(picked->y2 - picked->y1))
-      );
-      if (box.area() <= 1.f) { ++frame_id; continue; }
-      
+      cv::Rect2d box(std::min(picked->x1, picked->x2), std::min(picked->y1, picked->y2),
+                     std::max(1, std::abs(picked->x2 - picked->x1)),
+                     std::max(1, std::abs(picked->y2 - picked->y1)));
+      if (box.area() <= 1.f) {
+        ++frame_id;
+        continue;
+      }
+
       const double cx = box.x + 0.5 * box.width;
       double target_x = thirdsX(IMG_WIDTH, thirds_target_, cx);
       const double e_px = target_x - cx;
@@ -178,21 +173,21 @@ void OnnxInferenceNode::callbackInference()
       double servo = 90.0 + yaw_deg;
       servo_deg_ = std::clamp(servo, 0.0, 180.0);
 
-      //RCLCPP_INFO(this->get_logger(),
+      // RCLCPP_INFO(this->get_logger(),
       //"[thirds] W=%d | bbox_cx=%.1f -> target_x=%.1f | e_px=%.1f | yaw=%.2f° | servo=%.2f°",
-      //W, cx, target_x, e_px, yaw_deg, servo_deg_);
+      // W, cx, target_x, e_px, yaw_deg, servo_deg_);
 
       publishState(static_cast<float>(servo_deg_));
-      saveThirdsOverlayIfNeeded(frame, box, frame_id, target_x, "detect_thirds_"); 
+      saveThirdsOverlayIfNeeded(frame, box, frame_id, target_x, "detect_thirds_");
     } else {
       // 1) Take the best predicted track from SORT
-      const auto& all = g_sorter.all_tracks(); // contains predicted boxes (KF.predict() already ran in update)
-      const sort::Track* best = nullptr;
+      const auto &all =
+          g_sorter.all_tracks(); // contains predicted boxes (KF.predict() already ran in update)
+      const sort::Track *best = nullptr;
 
       // Heuristic: prefer high 'hits' (well-established), then smaller 'time_since_update' (recent)
-      for (const auto& t : all) {
-        if (!best ||
-            t.hits > best->hits ||
+      for (const auto &t : all) {
+        if (!best || t.hits > best->hits ||
             (t.hits == best->hits && t.time_since_update < best->time_since_update)) {
           best = &t;
         }
@@ -213,26 +208,24 @@ void OnnxInferenceNode::callbackInference()
         }
       }
     }
-    ++frame_id; 
-  } 
+    ++frame_id;
+  }
 }
 
-void OnnxInferenceNode::publishState(double deg)
-{
+void OnnxInferenceNode::publishState(double deg) {
   custom_msgs::msg::AbsResult m;
   m.x_angle = deg;
   RCLCPP_INFO(this->get_logger(), "Publishing servo setpoint: %.2f°", m.x_angle);
   pub_abs_->publish(m);
-        
-  if (!wait_for_ack_ms(ARK_TIME)) {   // tune timeout
+
+  if (!wait_for_ack_ms(ARK_TIME)) { // tune timeout
     RCLCPP_WARN(get_logger(), "px3 ACK timeout; continuing");
   }
 }
 
-}  // namespace onnx_inference
+} // namespace onnx_inference
 
-int main(int argc, char * argv[])
-{
+int main(int argc, char *argv[]) {
   rclcpp::NodeOptions options;
   rclcpp::init(argc, argv);
   auto node = std::make_shared<onnx_inference::OnnxInferenceNode>();

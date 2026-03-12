@@ -1,0 +1,39 @@
+name: cpp-ci
+# clang-format --dry-run --Werror []
+# clang-format -i []
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build_test_format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-format
+
+      - name: Init submodules
+        run: git submodule update --init --recursive
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: clang-format check
+        run: |
+          files=$(git ls-files '*.cpp' '*.cc' '*.cxx' '*.c' '*.hpp' '*.hh' '*.hxx' '*.h')
+          if [ -n "$files" ]; then
+            clang-format -i $files
+            git diff --exit-code
+          fi

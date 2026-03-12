@@ -1,42 +1,38 @@
 #ifndef ONNX_INFERENCE_HPP_
 #define ONNX_INFERENCE_HPP_
 
-#include <chrono>
-#include <memory>
-#include <string>
-#include <atomic>
-#include <cmath>  // std::lround, std::abs
-#include <std_msgs/msg/bool.hpp>
-#include <mutex>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cmath> // std::lround, std::abs
+#include <memory>
+#include <mutex>
+#include <std_msgs/msg/bool.hpp>
+#include <string>
 #include <vector>
 
-#include <opencv2/opencv.hpp>
-#include "rclcpp/rclcpp.hpp"
 #include "custom_msgs/msg/abs_result.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include <opencv2/opencv.hpp>
 
 // Root of your package on disk. Adjust if different.
 #define PKG_PATH "/ros2_ws/work/src/px2/"
 
-#include "yolo_inference.h"
-#include "sort_tracker.h" 
 #include "composition_tool.h"
+#include "sort_tracker.h"
 #include "utils.h"
+#include "yolo_inference.h"
 
 // Exact pixel->yaw mapping: theta = atan( 2*tan(HFOV/2) * (dx/W) )
-static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hfov_deg)
-{
-    const double PI   = 3.14159265358979323846;
-    const double hfov = hfov_deg * PI / 180.0;
-    const double yaw_rad = std::atan( (2.0 * std::tan(0.5 * hfov)) * (dx_px / width_px) );
-    return yaw_rad * 180.0 / PI;
+static inline double pixelErrorToYawDeg(double dx_px, double width_px, double hfov_deg) {
+  const double PI = 3.14159265358979323846;
+  const double hfov = hfov_deg * PI / 180.0;
+  const double yaw_rad = std::atan((2.0 * std::tan(0.5 * hfov)) * (dx_px / width_px));
+  return yaw_rad * 180.0 / PI;
 }
 
-
-namespace onnx_inference
-{
-class OnnxInferenceNode : public rclcpp::Node
-{
+namespace onnx_inference {
+class OnnxInferenceNode : public rclcpp::Node {
 public:
   explicit OnnxInferenceNode();
 
@@ -61,26 +57,25 @@ private:
 
   // ===== Flow / state =====
   std::atomic<bool> px3_ready_{false};
-  bool started_ = false;               // ensure the long loop runs once
-  double  servo_deg_ = 90;                // last commanded servo angle
+  bool started_ = false;  // ensure the long loop runs once
+  double servo_deg_ = 90; // last commanded servo angle
   float hfov_deg = 53.1;
 
   // ===== Tracking / control params =====
-  int    lost_max_frames_ = 15;
-  bool   save_frames_ = false;
-  bool   enforce_bgr8_ = true;         // convert frames to CV_8UC3 for tracker
+  int lost_max_frames_ = 15;
+  bool save_frames_ = false;
+  bool enforce_bgr8_ = true; // convert frames to CV_8UC3 for tracker
   ThirdsTarget thirds_target_ = ::ThirdsTarget::CENTER;
   bool preproc_enable_{false};
   // ===== Main pipeline (DETECT ↔ TRACK) =====
   void callbackInference();
   bool wait_for_ack_ms(int timeout_ms);
-  
+
   // ===== Utilities =====
   void publishState(double deg);
-  void saveThirdsOverlayIfNeeded(const cv::Mat& frame,
-                                 const cv::Rect2d& roi_img, int frame_id,
-                                 double target_x, const std::string& name_prefix);
+  void saveThirdsOverlayIfNeeded(const cv::Mat &frame, const cv::Rect2d &roi_img, int frame_id,
+                                 double target_x, const std::string &name_prefix);
 };
 
-}  // namespace onnx_inference
-#endif  // ONNX_INFERENCE_HPP_
+} // namespace onnx_inference
+#endif // ONNX_INFERENCE_HPP_
